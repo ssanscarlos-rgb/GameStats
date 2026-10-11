@@ -1,0 +1,326 @@
+{
+  "events": [
+    {
+      "eventId": "c1-001",
+      "timestamp": "2026-09-01T10:00:00Z",
+      "gameId": "combat",
+      "gameVersion": "1.0",
+      "matchId": "combat-001",
+      "type": "MATCH_STARTED"
+    },
+    {
+      "eventId": "c1-002",
+      "timestamp": "2026-09-01T10:00:01Z",
+      "gameId": "combat",
+      "gameVersion": "1.0",
+      "matchId": "combat-001",
+      "playerId": "alice",
+      "type": "PLAYER_JOINED"
+    },
+    {
+      "eventId": "c1-003",
+      "timestamp": "2026-09-01T10:00:01Z",
+      "gameId": "combat",
+      "gameVersion": "1.0",
+      "matchId": "combat-001",
+      "playerId": "bob",
+      "type": "PLAYER_JOINED"
+    },
+    {
+      "eventId": "c1-004",
+      "timestamp": "2026-09-01T10:00:09Z",
+      "gameId": "combat",
+      "gameVersion": "1.0",
+      "matchId": "combat-001",
+      "playerId": "bob",
+      "type": "SHOT_FIRED",
+      "data": {
+        "weapon": "rifle"
+      }
+    },
+    {
+      "eventId": "c1-005",
+      "timestamp": "2026-09-01T10:00:09Z",
+      "gameId": "combat",
+      "gameVersion": "1.0",
+      "matchId": "combat-001",
+      "playerId": "bob",
+      "type": "DAMAGE_DEALT",
+      "data": {
+        "target": "alice",
+        "amount": 100,
+        "weapon": "rifle"
+      }
+    },
+    {
+      "eventId": "c1-006",
+      "timestamp": "2026-09-01T10:00:10Z",
+      "gameId": "combat",
+      "gameVersion": "1.0",
+      "matchId": "combat-001",
+      "playerId": "bob",
+      "type": "PLAYER_ELIMINATED",
+      "data": {
+        "victimId": "alice",
+        "weapon": "rifle"
+      }
+    },
+    {
+      "eventId": "c1-007",
+      "timestamp": "2026-09-01T10:00:14Z",
+      "gameId": "combat",
+      "gameVersion": "1.0",
+      "matchId": "combat-001",
+      "playerId": "bob",
+      "type": "SHOT_FIRED",
+      "data": {
+        "weapon": "rifle"
+      }
+    },
+    {
+      "eventId": "c1-008",
+      "timestamp": "2026-09-01T10:00:14Z",
+      "gameId": "combat",
+      "gameVersion": "1.0",
+      "matchId": "combat-001",
+      "playerId": "bob",
+      "type": "DAMAGE_DEALT",
+      "data": {
+        "target": "alice",
+        "amount": 100,
+        "weapon": "rifle"
+      }
+    },
+    {
+      "eventId": "c1-009",
+      "timestamp": "2026-09-01T10:00:15Z",
+      "gameId": "combat",
+      "gameVersion": "1.0",
+      "matchId": "combat-001",
+      "playerId": "bob",
+      "type": "PLAYER_ELIMINATED",
+      "data": {
+        "victimId": "alice",
+        "weapon": "rifle"
+      }
+    },
+    {
+      "eventId": "c1-010",
+      "timestamp": "2026-09-01T10:00:19Z",
+      "gameId": "combat",
+      "gameVersion": "1.0",
+      "matchId": "combat-001",
+      "playerId": "bob",
+      "type": "SHOT_FIRED",
+      "data": {
+        "weapon": "rifle"
+      }
+    },
+    {
+      "eventId": "c1-011",
+      "timestamp": "2026-09-01T10:00:19Z",
+      "gameId": "combat",
+      "gameVersion": "1.0",
+      "matchId": "combat-001",
+      "playerId": "bob",
+      "type": "DAMAGE_DEALT",
+      "data": {
+        "target": "alice",
+        "amount": 100,
+        "weapon": "rifle"
+      }
+    },
+    {
+      "eventId": "c1-012",
+      "timestamp": "2026-09-01T10:00:20Z",
+      "gameId": "combat",
+      "gameVersion": "1.0",
+      "matchId": "combat-001",
+      "playerId": "bob",
+      "type": "PLAYER_ELIMINATED",
+      "data": {
+        "victimId": "alice",
+        "weapon": "rifle"
+      }
+    },
+    {
+      "eventId": "c1-013",
+      "timestamp": "2026-09-01T10:00:30Z",
+      "gameId": "combat",
+      "gameVersion": "1.0",
+      "matchId": "combat-001",
+      "playerId": "alice",
+      "type": "SHOT_FIRED",
+      "data": {
+        "weapon": "rifle"
+      }
+    },
+    {
+      "eventId": "c1-014",
+      "timestamp": "2026-09-01T10:00:59Z",
+      "gameId": "combat",
+      "gameVersion": "1.0",
+      "matchId": "combat-001",
+      "playerId": "alice",
+      "type": "SHOT_FIRED",
+      "data": {
+        "weapon": "sniper"
+      }
+    },
+    {
+      "eventId": "c1-015",
+      "timestamp": "2026-09-01T10:00:59Z",
+      "gameId": "combat",
+      "gameVersion": "1.0",
+      "matchId": "combat-001",
+      "playerId": "alice",
+      "type": "DAMAGE_DEALT",
+      "data": {
+        "target": "bob",
+        "amount": 100,
+        "weapon": "sniper"
+      }
+    },
+    {
+      "eventId": "c1-016",
+      "timestamp": "2026-09-01T10:01:00Z",
+      "gameId": "combat",
+      "gameVersion": "1.0",
+      "matchId": "combat-001",
+      "playerId": "alice",
+      "type": "PLAYER_ELIMINATED",
+      "data": {
+        "victimId": "bob",
+        "weapon": "sniper"
+      }
+    },
+    {
+      "eventId": "c1-017",
+      "timestamp": "2026-09-01T10:01:29Z",
+      "gameId": "combat",
+      "gameVersion": "1.0",
+      "matchId": "combat-001",
+      "playerId": "alice",
+      "type": "SHOT_FIRED",
+      "data": {
+        "weapon": "sniper"
+      }
+    },
+    {
+      "eventId": "c1-018",
+      "timestamp": "2026-09-01T10:01:29Z",
+      "gameId": "combat",
+      "gameVersion": "1.0",
+      "matchId": "combat-001",
+      "playerId": "alice",
+      "type": "DAMAGE_DEALT",
+      "data": {
+        "target": "bob",
+        "amount": 100,
+        "weapon": "sniper"
+      }
+    },
+    {
+      "eventId": "c1-019",
+      "timestamp": "2026-09-01T10:01:30Z",
+      "gameId": "combat",
+      "gameVersion": "1.0",
+      "matchId": "combat-001",
+      "playerId": "alice",
+      "type": "PLAYER_ELIMINATED",
+      "data": {
+        "victimId": "bob",
+        "weapon": "sniper"
+      }
+    },
+    {
+      "eventId": "c1-020",
+      "timestamp": "2026-09-01T10:01:59Z",
+      "gameId": "combat",
+      "gameVersion": "1.0",
+      "matchId": "combat-001",
+      "playerId": "alice",
+      "type": "SHOT_FIRED",
+      "data": {
+        "weapon": "sniper"
+      }
+    },
+    {
+      "eventId": "c1-021",
+      "timestamp": "2026-09-01T10:01:59Z",
+      "gameId": "combat",
+      "gameVersion": "1.0",
+      "matchId": "combat-001",
+      "playerId": "alice",
+      "type": "DAMAGE_DEALT",
+      "data": {
+        "target": "bob",
+        "amount": 100,
+        "weapon": "sniper"
+      }
+    },
+    {
+      "eventId": "c1-022",
+      "timestamp": "2026-09-01T10:02:00Z",
+      "gameId": "combat",
+      "gameVersion": "1.0",
+      "matchId": "combat-001",
+      "playerId": "alice",
+      "type": "PLAYER_ELIMINATED",
+      "data": {
+        "victimId": "bob",
+        "weapon": "sniper"
+      }
+    },
+    {
+      "eventId": "c1-023",
+      "timestamp": "2026-09-01T10:02:29Z",
+      "gameId": "combat",
+      "gameVersion": "1.0",
+      "matchId": "combat-001",
+      "playerId": "alice",
+      "type": "SHOT_FIRED",
+      "data": {
+        "weapon": "sniper"
+      }
+    },
+    {
+      "eventId": "c1-024",
+      "timestamp": "2026-09-01T10:02:29Z",
+      "gameId": "combat",
+      "gameVersion": "1.0",
+      "matchId": "combat-001",
+      "playerId": "alice",
+      "type": "DAMAGE_DEALT",
+      "data": {
+        "target": "bob",
+        "amount": 100,
+        "weapon": "sniper"
+      }
+    },
+    {
+      "eventId": "c1-025",
+      "timestamp": "2026-09-01T10:02:30Z",
+      "gameId": "combat",
+      "gameVersion": "1.0",
+      "matchId": "combat-001",
+      "playerId": "alice",
+      "type": "PLAYER_ELIMINATED",
+      "data": {
+        "victimId": "bob",
+        "weapon": "sniper"
+      }
+    },
+    {
+      "eventId": "c1-026",
+      "timestamp": "2026-09-01T10:02:40Z",
+      "gameId": "combat",
+      "gameVersion": "1.0",
+      "matchId": "combat-001",
+      "type": "MATCH_FINISHED",
+      "data": {
+        "winnerId": "alice"
+      }
+    }
+  ]
+}
