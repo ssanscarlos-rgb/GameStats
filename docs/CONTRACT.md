@@ -1,6 +1,6 @@
 # GameStats — Contrato de integración Go ↔ Scala
 
-**Versión:** 0.1 (borrador para acordar entre Jean y Andrés)
+**Versión:** 0.2 (borrador para acordar entre Jean y Andrés; agrega `racing` y `chase`)
 **Transporte:** HTTP/REST con JSON (UTF-8, `Content-Type: application/json`)
 **Servicio Scala (análisis):** `http://analyzer:8081` (variable `PORT`)
 **Cliente:** el módulo Go (ingestión) llama a Scala. Scala nunca llama a Go.
@@ -78,15 +78,43 @@ Los campos opcionales pueden omitirse o ir en `null`.
 
 > En `PLAYER_ELIMINATED` el `playerId` es quien elimina y la víctima va en `data.victimId`.
 
-### 2.3 Juego `racing` — propuesto, aún sin analizador
+### 2.3 Juego `racing` — carrera por vueltas (sin analizador propio todavía)
+
+Diseñado para ser lo más sencillo de implementar como juego real: el juego solo avisa cuando un piloto completa una vuelta y cuando choca. Las posiciones, la mejor vuelta y las remontadas **no** las manda el juego: Scala las calcula a partir de los tiempos.
 
 | `type` | `playerId` | `data` |
 |---|---|---|
-| `LAP_COMPLETED` | piloto | `lap` (int), `lapTimeMs` (int), `position` (int) |
-| `POSITION_CHANGED` | piloto | `from` (int), `to` (int) |
-| `PENALTY_APPLIED` | piloto | `seconds` (número), `reason` |
+| `MATCH_STARTED` | – | `track` (string), `laps` (int) |
+| `PLAYER_JOINED` | piloto | – |
+| `CRASH` | piloto | `lap` (int), `timeLostMs` (int) |
+| `LAP_COMPLETED` | piloto | `lap` (int), `lapTimeMs` (int, **ya incluye** el tiempo perdido por choques) |
+| `MATCH_FINISHED` | – | `winnerId` = piloto con menor tiempo total |
 
-Estadísticas previstas: mejor vuelta, promedio, consistencia (desviación estándar), evolución de posición. Patrón previsto: remontada (ganador que estuvo fuera del top 3).
+Ejemplo: `samples/racing_match.json` (vale choca en la vuelta 1, queda última y gana).
+
+Estadísticas y reglas: ver sección 5.2.
+
+### 2.4 Juego `chase` — La Buena vs La Mala (sin analizador propio todavía)
+
+Basado en el proyecto Java + Prolog de Jean. Tablero de `rows` × `cols` con obstáculos; La Buena (el jugador) debe alcanzar a La Mala moviéndose arriba, abajo, izquierda o derecha. El juego calcula la ruta más corta (A\*) y el jugador la recorre; si choca con un obstáculo pierde una vida (3 en total). Coordenadas `(row, col)` desde 0. Un solo jugador por partida.
+
+| `type` | `playerId` | `data` |
+|---|---|---|
+| `MATCH_STARTED` | – | `rows`, `cols`, `obstaclePct`, `lives` (int) |
+| `PLAYER_JOINED` | jugador | – |
+| `ROUTE_COMPUTED` | jugador | `found` (bool), `start` y `goal` (`{row, col}`), `optimalSteps` y `routeTurns` (int, solo si `found`) |
+| `PLAYER_MOVED` | jugador | `row`, `col` (int, celda de llegada), `direction` (`arriba`/`abajo`/`izquierda`/`derecha`), `turn` (bool, cambió de dirección) |
+| `OBSTACLE_HIT` | jugador | `row`, `col` (celda del obstáculo), `livesLeft` (int) |
+| `TARGET_REACHED` | jugador | `steps`, `turns` (int) |
+| `MATCH_FINISHED` | – | `winnerId` solo si alcanzó a La Mala |
+
+Ejemplo: `samples/chase_match.json`.
+
+Estadísticas y reglas: ver sección 5.3.
+
+### 2.5 Juegos sin analizador
+
+Si Scala no tiene analizador para un `gameId`, usa `GenericAnalyzer` (conteos por jugador y por tipo de evento). Go no conoce ningún juego en particular: **agregar un juego no requiere cambios en el servicio de ingestión**, solo en el simulador (la fuente de eventos) y, si se quieren estadísticas propias, un analizador en Scala.
 
 ---
 
@@ -187,7 +215,9 @@ Resultado real esperado para `samples/combat_match.json`:
 
 ---
 
-## 5. Estadísticas y reglas (`combat`)
+## 5. Estadísticas y reglas
+
+### 5.1 `combat`
 
 | Nivel | Métrica / regla | Eventos usados |
 |---|---|---|
@@ -197,6 +227,73 @@ Resultado real esperado para `samples/combat_match.json`:
 | Partida | duración, ganador, conteo por tipo | todos |
 | Patrón | `KILL_STREAK`: 3+ eliminaciones, ≤10 s entre cada una, sin morir | secuencia de `PLAYER_ELIMINATED` |
 | Patrón | `COMEBACK`: ganador que llegó a ir perdiendo por ≥3 eliminaciones | secuencia de `PLAYER_ELIMINATED` + `MATCH_FINISHED` |
+
+### 5.2 `racing`
+
+Las posiciones no vienen en los eventos: la posición de un piloto tras la vuelta *k* es su lugar al ordenar a todos por tiempo acumulado (suma de `lapTimeMs` hasta la vuelta *k*).
+
+| Nivel | Métrica / regla | Eventos usados |
+|---|---|---|
+| Jugador | vueltas completadas, tiempo total | `LAP_COMPLETED` |
+| Jugador | tiempo promedio por vuelta, consistencia (desviación estándar de sus vueltas) | `LAP_COMPLETED` |
+| Jugador | choques, tiempo perdido | `CRASH` |
+| Jugador (combina tipos) | tasa de choques = choques / vueltas; % del tiempo perdido en choques | `CRASH` + `LAP_COMPLETED` |
+| Jugador (secuencia) | podios (terminó 1.º a 3.º), posiciones ganadas (posición tras la vuelta 1 − posición final) | secuencia de `LAP_COMPLETED` |
+| Partida | duración, ganador, conteo por tipo | todos |
+| Partida | `FASTEST_LAP`: piloto con la vuelta más rápida de la carrera | `LAP_COMPLETED` |
+| Patrón | `COMEBACK`: el ganador estuvo en el último lugar después de alguna vuelta | secuencia de `LAP_COMPLETED` + `MATCH_FINISHED` |
+| Patrón | `CLEAN_RACE`: terminó en el podio sin ningún choque | `CRASH` + `LAP_COMPLETED` |
+
+**`counters`** (aditivos): `lapsCompleted`, `totalTimeMs`, `lapTimeSqSum` (suma de los cuadrados de cada vuelta; permite calcular la consistencia después de sumar varias carreras), `crashes`, `timeLostMs`, `podiums`, `positionsGained`.
+
+**`derived`**:
+- `avgLapMs` = `totalTimeMs / lapsCompleted`
+- `consistencyMs` = √(`lapTimeSqSum / lapsCompleted` − `avgLapMs`²)
+- `crashRate` = `crashes / lapsCompleted`
+- `timeLostPct` = `timeLostMs / totalTimeMs`
+
+**Resultado esperado para `samples/racing_match.json`** (4 vueltas, gana vale):
+
+| Piloto | lapsCompleted | totalTimeMs | crashes | timeLostMs | podiums | positionsGained | avgLapMs | consistencyMs | crashRate | timeLostPct |
+|---|---|---|---|---|---|---|---|---|---|---|
+| vale | 4 | 244335 | 1 | 12000 | 1 | 3 | 61083.75 | 5460.9 | 0.25 | 0.0491 |
+| luis | 4 | 252190 | 0 | 0 | 1 | -1 | 63047.5 | 362.7 | 0 | 0 |
+| sofi | 4 | 255858 | 0 | 0 | 1 | -1 | 63964.5 | 248.7 | 0 | 0 |
+| leo | 4 | 262175 | 0 | 0 | 0 | -1 | 65543.75 | 107.4 | 0 | 0 |
+
+Orden tras la vuelta 1: luis, sofi, leo, vale. Orden final: vale, luis, sofi, leo.
+Patrones: `COMEBACK` (vale), `FASTEST_LAP` (vale, vuelta 3, 57788 ms), `CLEAN_RACE` (luis y sofi).
+
+### 5.3 `chase` (La Buena vs La Mala)
+
+Una partida tiene un solo jugador. Una partida sin ruta (`found: false`) no cuenta en contra del jugador.
+
+| Nivel | Métrica / regla | Eventos usados |
+|---|---|---|
+| Jugador | partidas con ruta, partidas ganadas, movimientos, choques | `ROUTE_COMPUTED`, `TARGET_REACHED`, `PLAYER_MOVED`, `OBSTACLE_HIT` |
+| Jugador (combina tipos) | tasa de éxito = ganadas / partidas con ruta | `ROUTE_COMPUTED` + `TARGET_REACHED` |
+| Jugador (combina tipos) | eficiencia = pasos óptimos / pasos usados (solo partidas ganadas) | `ROUTE_COMPUTED` + `TARGET_REACHED` |
+| Jugador (combina tipos) | giros de más por victoria = giros usados − giros de la ruta | `ROUTE_COMPUTED` + `TARGET_REACHED` |
+| Partida | duración, ganador (vacío si perdió), conteo por tipo | todos |
+| Patrón | `PERFECT_RUN`: ganó con `steps == optimalSteps` y sin choques | `ROUTE_COMPUTED` + `OBSTACLE_HIT` + `TARGET_REACHED` |
+| Patrón | `CLOSE_CALL`: ganó después de quedar con 1 sola vida | secuencia de `OBSTACLE_HIT` → `TARGET_REACHED` |
+| Patrón | `NO_ROUTE`: el tablero no tenía ruta posible | `ROUTE_COMPUTED` con `found: false` |
+
+**`counters`** (aditivos): `routeFound` (0 o 1), `reached` (0 o 1), `moves`, `obstacleHits`, y solo en partidas ganadas: `reachedSteps`, `reachedOptimalSteps`, `reachedTurns`, `reachedRouteTurns`.
+
+**`derived`**:
+- `successRate` = `reached / routeFound`
+- `efficiency` = `reachedOptimalSteps / reachedSteps`
+- `extraTurnsPerWin` = (`reachedTurns − reachedRouteTurns`) / `reached`
+- `hitsPerMatch` = `obstacleHits / routeFound`
+
+**Resultado esperado para `samples/chase_match.json`** (jugadora nati, ruta óptima de 7 pasos y 1 giro):
+
+| Jugador | routeFound | reached | moves | obstacleHits | reachedSteps | reachedOptimalSteps | reachedTurns | reachedRouteTurns | successRate | efficiency | extraTurnsPerWin | hitsPerMatch |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| nati | 1 | 1 | 9 | 1 | 9 | 7 | 4 | 1 | 1.0 | 0.7778 | 3.0 | 1.0 |
+
+Patrones: ninguno (no fue perfecta y le quedaron 2 vidas).
 
 ---
 
@@ -244,8 +341,8 @@ Usar `json.RawMessage` para `data` mantiene a Go genérico: no necesita conocer 
 
 ## 8. Decisiones pendientes
 
-1. ¿Segundo juego: `racing` (propuesto) u otro (ajedrez, cartas)?
-2. ¿Cómo recibe Go los eventos: archivos JSON, API REST propia, o ambos?
-3. ¿Cuándo considera Go "lista" una partida: al ver `MATCH_FINISHED`, o por inactividad con timeout?
+1. ~~¿Segundo juego?~~ Propuesta: `racing` (2.3) y `chase` (2.4). Pendiente: ¿cuáles tendrán analizador propio en Scala?
+2. ~~¿Cómo recibe Go los eventos?~~ API REST propia: `POST http://ingest:8080/events` (un evento, un arreglo o `{"events":[...]}`).
+3. ~~¿Cuándo está "lista" una partida?~~ Al recibir `MATCH_FINISHED`; como respaldo, tras `IDLE_TIMEOUT` (30 s) sin eventos.
 4. ¿Los resultados persisten en disco o basta memoria? (Hoy: memoria; se pierden al reiniciar Scala.)
-5. Nombre y puerto del servicio Go.
+5. ~~Nombre y puerto del servicio Go.~~ `ingest`, puerto 8080.
