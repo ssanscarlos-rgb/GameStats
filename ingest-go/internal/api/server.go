@@ -1,3 +1,4 @@
+// Package api es la "puerta de entrada" HTTP del módulo de ingestión.
 package api
 
 import (
@@ -19,10 +20,17 @@ type Sink func(event.Event)
 type Server struct {
 	sink     Sink
 	rejected *RejectedLog
+	status   func() any // opcional: qué mostrar en GET /status
 }
 
 func NewServer(sink Sink, rejected *RejectedLog) *Server {
 	return &Server{sink: sink, rejected: rejected}
+}
+
+// WithStatus agrega una función que describe el estado interno (GET /status).
+func (s *Server) WithStatus(f func() any) *Server {
+	s.status = f
+	return s
 }
 
 // Routes conecta cada dirección (ruta) con la función que la atiende.
@@ -31,6 +39,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /health", s.health)
 	mux.HandleFunc("POST /events", s.postEvents)
 	mux.HandleFunc("GET /rejected", s.getRejected)
+	mux.HandleFunc("GET /status", s.getStatus)
 	return mux
 }
 
@@ -95,6 +104,15 @@ func (s *Server) postEvents(w http.ResponseWriter, r *http.Request) {
 func (s *Server) getRejected(w http.ResponseWriter, _ *http.Request) {
 	items, total := s.rejected.Snapshot()
 	writeJSON(w, http.StatusOK, map[string]any{"total": total, "recent": items})
+}
+
+func (s *Server) getStatus(w http.ResponseWriter, _ *http.Request) {
+	_, rejected := s.rejected.Snapshot()
+	body := map[string]any{"rejected": rejected}
+	if s.status != nil {
+		body["pipeline"] = s.status()
+	}
+	writeJSON(w, http.StatusOK, body)
 }
 
 // splitEvents separa el cuerpo en eventos individuales SIN interpretarlos todavía.
