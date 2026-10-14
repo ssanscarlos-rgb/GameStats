@@ -1,0 +1,284 @@
+{
+  "events": [
+    {
+      "eventId": "racing-001-001",
+      "timestamp": "2026-10-14T19:00:56.000Z",
+      "gameId": "racing",
+      "gameVersion": "1.0",
+      "matchId": "racing-001",
+      "type": "MATCH_STARTED",
+      "data": {
+        "laps": 4,
+        "track": "Circuito Arenal"
+      }
+    },
+    {
+      "eventId": "racing-001-002",
+      "timestamp": "2026-10-14T19:00:56.000Z",
+      "gameId": "racing",
+      "gameVersion": "1.0",
+      "matchId": "racing-001",
+      "playerId": "vale",
+      "type": "PLAYER_JOINED"
+    },
+    {
+      "eventId": "racing-001-003",
+      "timestamp": "2026-10-14T19:00:56.000Z",
+      "gameId": "racing",
+      "gameVersion": "1.0",
+      "matchId": "racing-001",
+      "playerId": "luis",
+      "type": "PLAYER_JOINED"
+    },
+    {
+      "eventId": "racing-001-004",
+      "timestamp": "2026-10-14T19:00:56.000Z",
+      "gameId": "racing",
+      "gameVersion": "1.0",
+      "matchId": "racing-001",
+      "playerId": "sofi",
+      "type": "PLAYER_JOINED"
+    },
+    {
+      "eventId": "racing-001-005",
+      "timestamp": "2026-10-14T19:00:56.000Z",
+      "gameId": "racing",
+      "gameVersion": "1.0",
+      "matchId": "racing-001",
+      "playerId": "leo",
+      "type": "PLAYER_JOINED"
+    },
+    {
+      "eventId": "racing-001-006",
+      "timestamp": "2026-10-14T19:01:30.269Z",
+      "gameId": "racing",
+      "gameVersion": "1.0",
+      "matchId": "racing-001",
+      "playerId": "vale",
+      "type": "CRASH",
+      "data": {
+        "lap": 1,
+        "timeLostMs": 12000
+      }
+    },
+    {
+      "eventId": "racing-001-007",
+      "timestamp": "2026-10-14T19:02:04.635Z",
+      "gameId": "racing",
+      "gameVersion": "1.0",
+      "matchId": "racing-001",
+      "playerId": "luis",
+      "type": "LAP_COMPLETED",
+      "data": {
+        "lap": 1,
+        "lapTimeMs": 63635
+      }
+    },
+    {
+      "eventId": "racing-001-008",
+      "timestamp": "2026-10-14T19:02:05.311Z",
+      "gameId": "racing",
+      "gameVersion": "1.0",
+      "matchId": "racing-001",
+      "playerId": "sofi",
+      "type": "LAP_COMPLETED",
+      "data": {
+        "lap": 1,
+        "lapTimeMs": 64311
+      }
+    },
+    {
+      "eventId": "racing-001-009",
+      "timestamp": "2026-10-14T19:02:06.620Z",
+      "gameId": "racing",
+      "gameVersion": "1.0",
+      "matchId": "racing-001",
+      "playerId": "leo",
+      "type": "LAP_COMPLETED",
+      "data": {
+        "lap": 1,
+        "lapTimeMs": 65620
+      }
+    },
+    {
+      "eventId": "racing-001-010",
+      "timestamp": "2026-10-14T19:02:11.538Z",
+      "gameId": "racing",
+      "gameVersion": "1.0",
+      "matchId": "racing-001",
+      "playerId": "vale",
+      "type": "LAP_COMPLETED",
+      "data": {
+        "lap": 1,
+        "lapTimeMs": 70538
+      }
+    },
+    {
+      "eventId": "racing-001-011",
+      "timestamp": "2026-10-14T19:03:07.277Z",
+      "gameId": "racing",
+      "gameVersion": "1.0",
+      "matchId": "racing-001",
+      "playerId": "luis",
+      "type": "LAP_COMPLETED",
+      "data": {
+        "lap": 2,
+        "lapTimeMs": 62642
+      }
+    },
+    {
+      "eventId": "racing-001-012",
+      "timestamp": "2026-10-14T19:03:08.935Z",
+      "gameId": "racing",
+      "gameVersion": "1.0",
+      "matchId": "racing-001",
+      "playerId": "sofi",
+      "type": "LAP_COMPLETED",
+      "data": {
+        "lap": 2,
+        "lapTimeMs": 63624
+      }
+    },
+    {
+      "eventId": "racing-001-013",
+      "timestamp": "2026-10-14T19:03:09.348Z",
+      "gameId": "racing",
+      "gameVersion": "1.0",
+      "matchId": "racing-001",
+      "playerId": "vale",
+      "type": "LAP_COMPLETED",
+      "data": {
+        "lap": 2,
+        "lapTimeMs": 57810
+      }
+    },
+    {
+      "eventId": "racing-001-014",
+      "timestamp": "2026-10-14T19:03:11.993Z",
+      "gameId": "racing",
+      "gameVersion": "1.0",
+      "matchId": "racing-001",
+      "playerId": "leo",
+      "type": "LAP_COMPLETED",
+      "data": {
+        "lap": 2,
+        "lapTimeMs": 65373
+      }
+    },
+    {
+      "eventId": "racing-001-015",
+      "timestamp": "2026-10-14T19:04:07.136Z",
+      "gameId": "racing",
+      "gameVersion": "1.0",
+      "matchId": "racing-001",
+      "playerId": "vale",
+      "type": "LAP_COMPLETED",
+      "data": {
+        "lap": 3,
+        "lapTimeMs": 57788
+      }
+    },
+    {
+      "eventId": "racing-001-016",
+      "timestamp": "2026-10-14T19:04:10.240Z",
+      "gameId": "racing",
+      "gameVersion": "1.0",
+      "matchId": "racing-001",
+      "playerId": "luis",
+      "type": "LAP_COMPLETED",
+      "data": {
+        "lap": 3,
+        "lapTimeMs": 62963
+      }
+    },
+    {
+      "eventId": "racing-001-017",
+      "timestamp": "2026-10-14T19:04:12.972Z",
+      "gameId": "racing",
+      "gameVersion": "1.0",
+      "matchId": "racing-001",
+      "playerId": "sofi",
+      "type": "LAP_COMPLETED",
+      "data": {
+        "lap": 3,
+        "lapTimeMs": 64037
+      }
+    },
+    {
+      "eventId": "racing-001-018",
+      "timestamp": "2026-10-14T19:04:17.526Z",
+      "gameId": "racing",
+      "gameVersion": "1.0",
+      "matchId": "racing-001",
+      "playerId": "leo",
+      "type": "LAP_COMPLETED",
+      "data": {
+        "lap": 3,
+        "lapTimeMs": 65533
+      }
+    },
+    {
+      "eventId": "racing-001-019",
+      "timestamp": "2026-10-14T19:05:05.335Z",
+      "gameId": "racing",
+      "gameVersion": "1.0",
+      "matchId": "racing-001",
+      "playerId": "vale",
+      "type": "LAP_COMPLETED",
+      "data": {
+        "lap": 4,
+        "lapTimeMs": 58199
+      }
+    },
+    {
+      "eventId": "racing-001-020",
+      "timestamp": "2026-10-14T19:05:13.190Z",
+      "gameId": "racing",
+      "gameVersion": "1.0",
+      "matchId": "racing-001",
+      "playerId": "luis",
+      "type": "LAP_COMPLETED",
+      "data": {
+        "lap": 4,
+        "lapTimeMs": 62950
+      }
+    },
+    {
+      "eventId": "racing-001-021",
+      "timestamp": "2026-10-14T19:05:16.858Z",
+      "gameId": "racing",
+      "gameVersion": "1.0",
+      "matchId": "racing-001",
+      "playerId": "sofi",
+      "type": "LAP_COMPLETED",
+      "data": {
+        "lap": 4,
+        "lapTimeMs": 63886
+      }
+    },
+    {
+      "eventId": "racing-001-022",
+      "timestamp": "2026-10-14T19:05:23.175Z",
+      "gameId": "racing",
+      "gameVersion": "1.0",
+      "matchId": "racing-001",
+      "playerId": "leo",
+      "type": "LAP_COMPLETED",
+      "data": {
+        "lap": 4,
+        "lapTimeMs": 65649
+      }
+    },
+    {
+      "eventId": "racing-001-023",
+      "timestamp": "2026-10-14T19:05:25.175Z",
+      "gameId": "racing",
+      "gameVersion": "1.0",
+      "matchId": "racing-001",
+      "type": "MATCH_FINISHED",
+      "data": {
+        "winnerId": "vale"
+      }
+    }
+  ]
+}

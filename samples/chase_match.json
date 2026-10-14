@@ -1,0 +1,222 @@
+{
+  "events": [
+    {
+      "eventId": "chase-001-001",
+      "timestamp": "2026-10-14T19:00:48.000Z",
+      "gameId": "chase",
+      "gameVersion": "1.0",
+      "matchId": "chase-001",
+      "type": "MATCH_STARTED",
+      "data": {
+        "cols": 14,
+        "lives": 3,
+        "obstaclePct": 23,
+        "rows": 7
+      }
+    },
+    {
+      "eventId": "chase-001-002",
+      "timestamp": "2026-10-14T19:00:48.500Z",
+      "gameId": "chase",
+      "gameVersion": "1.0",
+      "matchId": "chase-001",
+      "playerId": "nati",
+      "type": "PLAYER_JOINED"
+    },
+    {
+      "eventId": "chase-001-003",
+      "timestamp": "2026-10-14T19:00:48.714Z",
+      "gameId": "chase",
+      "gameVersion": "1.0",
+      "matchId": "chase-001",
+      "playerId": "nati",
+      "type": "ROUTE_COMPUTED",
+      "data": {
+        "found": true,
+        "goal": {
+          "col": 11,
+          "row": 3
+        },
+        "optimalSteps": 7,
+        "routeTurns": 1,
+        "start": {
+          "col": 7,
+          "row": 0
+        }
+      }
+    },
+    {
+      "eventId": "chase-001-004",
+      "timestamp": "2026-10-14T19:00:49.786Z",
+      "gameId": "chase",
+      "gameVersion": "1.0",
+      "matchId": "chase-001",
+      "playerId": "nati",
+      "type": "PLAYER_MOVED",
+      "data": {
+        "col": 7,
+        "direction": "abajo",
+        "row": 1,
+        "turn": false
+      }
+    },
+    {
+      "eventId": "chase-001-005",
+      "timestamp": "2026-10-14T19:00:50.351Z",
+      "gameId": "chase",
+      "gameVersion": "1.0",
+      "matchId": "chase-001",
+      "playerId": "nati",
+      "type": "PLAYER_MOVED",
+      "data": {
+        "col": 7,
+        "direction": "abajo",
+        "row": 2,
+        "turn": false
+      }
+    },
+    {
+      "eventId": "chase-001-006",
+      "timestamp": "2026-10-14T19:00:51.020Z",
+      "gameId": "chase",
+      "gameVersion": "1.0",
+      "matchId": "chase-001",
+      "playerId": "nati",
+      "type": "OBSTACLE_HIT",
+      "data": {
+        "col": 8,
+        "livesLeft": 2,
+        "row": 2
+      }
+    },
+    {
+      "eventId": "chase-001-007",
+      "timestamp": "2026-10-14T19:00:52.312Z",
+      "gameId": "chase",
+      "gameVersion": "1.0",
+      "matchId": "chase-001",
+      "playerId": "nati",
+      "type": "PLAYER_MOVED",
+      "data": {
+        "col": 7,
+        "direction": "abajo",
+        "row": 3,
+        "turn": false
+      }
+    },
+    {
+      "eventId": "chase-001-008",
+      "timestamp": "2026-10-14T19:00:53.072Z",
+      "gameId": "chase",
+      "gameVersion": "1.0",
+      "matchId": "chase-001",
+      "playerId": "nati",
+      "type": "PLAYER_MOVED",
+      "data": {
+        "col": 8,
+        "direction": "derecha",
+        "row": 3,
+        "turn": true
+      }
+    },
+    {
+      "eventId": "chase-001-009",
+      "timestamp": "2026-10-14T19:00:53.875Z",
+      "gameId": "chase",
+      "gameVersion": "1.0",
+      "matchId": "chase-001",
+      "playerId": "nati",
+      "type": "PLAYER_MOVED",
+      "data": {
+        "col": 9,
+        "direction": "derecha",
+        "row": 3,
+        "turn": false
+      }
+    },
+    {
+      "eventId": "chase-001-010",
+      "timestamp": "2026-10-14T19:00:54.516Z",
+      "gameId": "chase",
+      "gameVersion": "1.0",
+      "matchId": "chase-001",
+      "playerId": "nati",
+      "type": "PLAYER_MOVED",
+      "data": {
+        "col": 10,
+        "direction": "derecha",
+        "row": 3,
+        "turn": false
+      }
+    },
+    {
+      "eventId": "chase-001-011",
+      "timestamp": "2026-10-14T19:00:55.423Z",
+      "gameId": "chase",
+      "gameVersion": "1.0",
+      "matchId": "chase-001",
+      "playerId": "nati",
+      "type": "PLAYER_MOVED",
+      "data": {
+        "col": 10,
+        "direction": "abajo",
+        "row": 4,
+        "turn": true
+      }
+    },
+    {
+      "eventId": "chase-001-012",
+      "timestamp": "2026-10-14T19:00:56.193Z",
+      "gameId": "chase",
+      "gameVersion": "1.0",
+      "matchId": "chase-001",
+      "playerId": "nati",
+      "type": "PLAYER_MOVED",
+      "data": {
+        "col": 10,
+        "direction": "arriba",
+        "row": 3,
+        "turn": true
+      }
+    },
+    {
+      "eventId": "chase-001-013",
+      "timestamp": "2026-10-14T19:00:57.494Z",
+      "gameId": "chase",
+      "gameVersion": "1.0",
+      "matchId": "chase-001",
+      "playerId": "nati",
+      "type": "PLAYER_MOVED",
+      "data": {
+        "col": 11,
+        "direction": "derecha",
+        "row": 3,
+        "turn": true
+      }
+    },
+    {
+      "eventId": "chase-001-014",
+      "timestamp": "2026-10-14T19:00:57.794Z",
+      "gameId": "chase",
+      "gameVersion": "1.0",
+      "matchId": "chase-001",
+      "playerId": "nati",
+      "type": "TARGET_REACHED",
+      "data": {
+        "steps": 9,
+        "turns": 4
+      }
+    },
+    {
+      "eventId": "chase-001-015",
+      "timestamp": "2026-10-14T19:00:58.794Z",
+      "gameId": "chase",
+      "gameVersion": "1.0",
+      "matchId": "chase-001",
+      "type": "MATCH_FINISHED",
+      "data": {
+        "winnerId": "nati"
+      }
+    }
+  ]
+}

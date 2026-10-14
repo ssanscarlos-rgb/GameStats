@@ -3,28 +3,33 @@ package event
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
 
-// Todos los eventos del ejemplo compartido con Scala tienen que pasar la validación.
-func TestSampleFromScalaIsValid(t *testing.T) {
-	raw, err := os.ReadFile("../../../samples/combat_match.json")
-	if err != nil {
-		t.Fatalf("no se pudo leer el ejemplo: %v", err)
+// Todos los eventos de los ejemplos compartidos con Scala (samples/*.json)
+// tienen que pasar la validación.
+func TestSamplesAreValid(t *testing.T) {
+	files, _ := filepath.Glob("../../../samples/*.json")
+	if len(files) == 0 {
+		t.Fatal("no se encontraron ejemplos en samples/")
 	}
-	var batch struct {
-		Events []json.RawMessage `json:"events"`
-	}
-	if err := json.Unmarshal(raw, &batch); err != nil {
-		t.Fatal(err)
-	}
-	if len(batch.Events) == 0 {
-		t.Fatal("el ejemplo no trae eventos")
-	}
-	for i, r := range batch.Events {
-		if _, problems := Parse(r); len(problems) > 0 {
-			t.Errorf("evento %d rechazado: %v", i, problems)
+	for _, f := range files {
+		raw, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var batch struct {
+			Events []json.RawMessage `json:"events"`
+		}
+		if err := json.Unmarshal(raw, &batch); err != nil || len(batch.Events) == 0 {
+			t.Fatalf("%s: sin eventos (%v)", f, err)
+		}
+		for i, r := range batch.Events {
+			if _, problems := Parse(r); len(problems) > 0 {
+				t.Errorf("%s, evento %d rechazado: %v", f, i, problems)
+			}
 		}
 	}
 }
