@@ -1,0 +1,47 @@
+# CI del módulo Go: en cada push o pull request que toque ingest-go/ (o los
+# ejemplos que sus pruebas leen), revisa el formato, corre las pruebas con el
+# detector de carreras y construye la imagen Docker.
+name: Go CI
+on:
+  push:
+    paths: ['ingest-go/**', 'samples/**', '.github/workflows/go-ci.yml']
+  pull_request:
+    paths: ['ingest-go/**', 'samples/**']
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ingest-go
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: ingest-go/go.mod   # la misma versión de Go que pide el proyecto
+          cache: false                        # sin dependencias externas: no hay nada que guardar
+
+      - name: Formato (gofmt)
+        run: |
+          sin_formato=$(gofmt -l .)
+          if [ -n "$sin_formato" ]; then
+            echo "Archivos sin formatear (corre gofmt -w):"
+            echo "$sin_formato"
+            exit 1
+          fi
+
+      - name: Análisis estático (go vet)
+        run: go vet ./...
+
+      - name: Pruebas con detector de carreras
+        run: go test -race -count=1 ./...
+
+      - name: Compilar los tres programas
+        run: |
+          go build -o /dev/null ./cmd/ingest
+          go build -o /dev/null ./cmd/simulator
+          go build -o /dev/null ./cmd/dashboard
+
+      - name: Construir imagen Docker
+        run: docker build -t gamestats-go:${{ github.sha }} .
