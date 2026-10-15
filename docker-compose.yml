@@ -1,0 +1,76 @@
+# GameStats completo con un solo comando:
+#
+#   docker compose up --build        # construye las imágenes y levanta todo
+#   docker compose up -d             # igual, pero en segundo plano
+#   docker compose logs -f ingest    # ver la salida de un servicio
+#   docker compose down              # apagar y borrar los contenedores
+#
+# Después: dashboard en http://localhost:8090
+#
+# Dentro de la red de Compose cada servicio se encuentra por su nombre:
+# el ingest le habla a Scala en http://analyzer:8081, no en localhost.
+
+services:
+  # Módulo de análisis (Scala). Recibe partidas completas y guarda los resultados.
+  analyzer:
+    build: ./analytics-scala
+    image: gamestats-analyzer
+    ports:
+      - "8081:8081"
+    healthcheck:
+      # La imagen de Java no trae curl ni wget: se pide /health con bash, abriendo
+      # el puerto como si fuera un archivo (/dev/tcp), y se busca "ok" en la respuesta.
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8081 && printf 'GET /health HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q ok <&3"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+
+  # Módulo de ingestión (Go). Recibe eventos, los valida y manda cada partida a Scala.
+  ingest:
+    build: ./ingest-go
+    image: gamestats-go
+    environment:
+      ANALYZER_URL: http://analyzer:8081
+      IDLE_TIMEOUT: ${IDLE_TIMEOUT:-30s}   # cambiable al arrancar: IDLE_TIMEOUT=10s docker compose up
+    ports:
+      - "8080:8080"
+    depends_on:
+      analyzer:
+        condition: service_healthy        # espera a que Scala responda antes de arrancar
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 6
+    restart: unless-stopped
+
+  # Panel web. Misma imagen que el ingest, otro programa: lee de Go y Scala y lanza el simulador.
+  dashboard:
+    build: ./ingest-go
+    image: gamestats-go
+    command: ["/app/dashboard"]
+    environment:
+      PORT: "8090"
+      INGEST_URL: http://ingest:8080
+      ANALYZER_URL: http://analyzer:8081
+    ports:
+      - "8090:8090"
+    depends_on:
+      ingest:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Simulador por línea de comandos, para usarlo sin el panel (por ejemplo, en el CI).
+  # No arranca con "up": está en el perfil "sim" y se corre a pedido:
+  #   docker compose run --rm simulator -combat 5 -racing 3
+  simulator:
+    image: gamestats-go
+    entrypoint: ["/app/simulator"]
+    environment:
+      INGEST_URL: http://ingest:8080
+    depends_on:
+      ingest:
+        condition: service_healthy
+    profiles: ["sim"]
