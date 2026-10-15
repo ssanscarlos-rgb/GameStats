@@ -29,7 +29,7 @@ object Common:
 
 object Analyzers:
   private val registry: Map[String, GameAnalyzer] =
-    List[GameAnalyzer](CombatAnalyzer).map(a => a.gameId -> a).toMap
+    List[GameAnalyzer](CombatAnalyzer, RacingAnalyzer, ChaseAnalyzer).map(a => a.gameId -> a).toMap
 
   def forGame(gameId: String): GameAnalyzer = registry.getOrElse(gameId, GenericAnalyzer)
 

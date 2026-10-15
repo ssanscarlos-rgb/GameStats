@@ -4,6 +4,8 @@ ThisBuild / version      := "0.1.0"
 lazy val root = (project in file("."))
   .settings(
     name := "gamestats-analyzer",
+    // Cask arranca el servidor en hilos de fondo: sin fork, `sbt run` lo cierra enseguida.
+    run / fork := true,
     libraryDependencies ++= Seq(
       "com.lihaoyi"   %% "cask"         % "0.9.4",
       "io.circe"      %% "circe-core"   % "0.14.10",
