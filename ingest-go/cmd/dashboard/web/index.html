@@ -1,0 +1,1217 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>GameStats en vivo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* ---------- Tokens ---------- */
+        :root {
+            color-scheme: light;
+            --page: #e8ecf1;
+            --surface: #fbfcfd;
+            --surface-2: #f1f4f7;
+            --ink: #111821;
+            --ink-2: #4a5464;
+            --muted: #6f7988;
+            --rule: #d8dde5;
+            --axis: #c3c9d2;
+            --combat: #2a78d6;
+            --racing: #eb6834;
+            --chase: #1baf7a;
+            --flow-in: #6250d6;
+            --flow-out: #e87ba4;
+            --good: #0ca30c;
+            --good-text: #006300;
+            --critical: #d03b3b;
+            --warning: #fab219;
+            --button: #111821;
+            --button-ink: #fbfcfd;
+            --ring: rgba(17, 24, 33, 0.10);
+            --console: #121821;
+            --console-ink: #d9dee6;
+            --console-dim: #8b95a4;
+            --sans: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+            --cond: "Barlow Semi Condensed", "Barlow", system-ui, sans-serif;
+            --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                color-scheme: dark;
+                --page: #0b0f14; --surface: #131921; --surface-2: #19202a;
+                --ink: #e8ecf1; --ink-2: #a8b1be; --muted: #8a93a1; --rule: #232b36; --axis: #303a48;
+                --combat: #3987e5; --racing: #d95926; --chase: #199e70;
+                --flow-in: #9085e9; --flow-out: #d55181; --good-text: #0ca30c;
+                --button: #e8ecf1; --button-ink: #0b0f14; --ring: rgba(255, 255, 255, 0.10);
+                --console: #0a0d12; --console-ink: #d9dee6; --console-dim: #7f8999;
+            }
+        }
+        :root[data-theme="dark"] {
+            color-scheme: dark;
+            --page: #0b0f14; --surface: #131921; --surface-2: #19202a;
+            --ink: #e8ecf1; --ink-2: #a8b1be; --muted: #8a93a1; --rule: #232b36; --axis: #303a48;
+            --combat: #3987e5; --racing: #d95926; --chase: #199e70;
+            --flow-in: #9085e9; --flow-out: #d55181; --good-text: #0ca30c;
+            --button: #e8ecf1; --button-ink: #0b0f14; --ring: rgba(255, 255, 255, 0.10);
+            --console: #0a0d12; --console-ink: #d9dee6; --console-dim: #7f8999;
+        }
+
+        /* ---------- Base ---------- */
+        * { box-sizing: border-box; }
+        html { -webkit-text-size-adjust: 100%; }
+        body {
+            margin: 0; background: var(--page); color: var(--ink);
+            font: 400 15px/1.5 var(--sans);
+        }
+        h1, h2, h3 { font-family: var(--cond); font-weight: 600; margin: 0; letter-spacing: 0.005em; }
+        h2 { font-size: 22px; line-height: 1.2; }
+        h3 { font-size: 16px; line-height: 1.25; }
+        p { margin: 0; }
+        button, input, select { font: inherit; color: inherit; }
+        :focus-visible { outline: 2px solid var(--flow-in); outline-offset: 2px; border-radius: 4px; }
+        .lead { color: var(--ink-2); max-width: 70ch; margin-top: 4px; }
+        .num { font-variant-numeric: tabular-nums; }
+        .wrap { max-width: 1280px; margin: 0 auto; padding: 0 24px; }
+        .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+        /* ---------- Top bar ---------- */
+        .top { border-bottom: 1px solid var(--rule); background: var(--surface); }
+        .top .wrap { display: flex; align-items: center; gap: 24px; padding-top: 14px; padding-bottom: 14px; flex-wrap: wrap; }
+        .brand { display: flex; align-items: center; gap: 12px; margin-right: auto; }
+        .brand-mark { display: grid; grid-template-columns: repeat(3, 6px); gap: 3px; align-items: end; height: 26px; }
+        .brand-mark i { display: block; border-radius: 2px 2px 0 0; }
+        .brand-mark i:nth-child(1) { height: 14px; background: var(--combat); }
+        .brand-mark i:nth-child(2) { height: 26px; background: var(--racing); }
+        .brand-mark i:nth-child(3) { height: 19px; background: var(--chase); }
+        .brand h1 { font-size: 24px; line-height: 1; }
+        .brand p { color: var(--ink-2); font-size: 13px; margin-top: 3px; }
+        .services { list-style: none; margin: 0; padding: 0; display: flex; gap: 8px; flex-wrap: wrap; }
+        .svc {
+            display: flex; align-items: center; gap: 8px; padding: 6px 12px 6px 10px;
+            border: 1px solid var(--rule); border-radius: 999px; font-size: 13px; background: var(--surface);
+        }
+        .svc b { font-weight: 600; }
+        .svc .state { color: var(--ink-2); }
+        .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--axis); flex: none; }
+        .svc[data-up="true"] .dot { background: var(--good); box-shadow: 0 0 0 3px color-mix(in srgb, var(--good) 22%, transparent); }
+        .svc[data-up="false"] .dot { background: var(--critical); }
+        .theme-btn {
+            border: 1px solid var(--rule); background: transparent; border-radius: 8px; padding: 6px 10px;
+            font-size: 13px; cursor: pointer; color: var(--ink-2);
+        }
+        .theme-btn:hover { color: var(--ink); background: var(--surface-2); }
+
+        main { padding: 36px 0 64px; }
+        section + section, .split + section, section + .split, .split + .split { margin-top: 40px; }
+
+        /* ---------- Route (hero) ---------- */
+        .route-head { display: flex; justify-content: space-between; align-items: end; gap: 16px; flex-wrap: wrap; }
+        .track {
+            position: relative; margin-top: 22px; display: grid; grid-template-columns: repeat(5, 1fr);
+            background: var(--surface); border: 1px solid var(--rule); border-radius: 14px; padding: 26px 8px 22px;
+        }
+        .track::before {
+            content: ""; position: absolute; left: 10%; right: 10%; top: 38px; height: 2px; background: var(--axis);
+        }
+        .station { position: relative; padding: 0 14px; text-align: center; }
+        .node {
+            position: relative; z-index: 1; display: block; width: 18px; height: 18px; margin: 3px auto 14px;
+            border-radius: 50%; background: var(--surface); border: 2px solid var(--axis); transition: border-color .3s, background .3s;
+        }
+        .station[data-on="true"] .node { border-color: var(--flow-in); background: color-mix(in srgb, var(--flow-in) 18%, var(--surface)); }
+        .station h3 { font-size: 15px; color: var(--ink-2); font-weight: 600; }
+        .big {
+            display: block; font-family: var(--cond); font-weight: 600; font-size: 46px; line-height: 1.05;
+            margin-top: 4px; color: var(--ink);
+        }
+        .station .sub { font-size: 13px; color: var(--ink-2); margin-top: 4px; min-height: 2.6em; }
+        .pulse {
+            position: absolute; z-index: 2; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%;
+            background: var(--flow-in); box-shadow: 0 0 0 2px var(--surface); pointer-events: none;
+        }
+        .notice {
+            margin-top: 14px; padding: 12px 14px; border-radius: 10px; font-size: 14px;
+            border: 1px solid color-mix(in srgb, var(--critical) 45%, var(--rule));
+            background: color-mix(in srgb, var(--critical) 7%, var(--surface));
+        }
+        .notice code, .hint code { font-family: var(--mono); font-size: 13px; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+
+        /* ---------- Split layouts ---------- */
+        .split { display: grid; gap: 24px; }
+        .split > *, .results-body > *, .live > * { min-width: 0; }
+        .split.control { grid-template-columns: minmax(300px, 380px) 1fr; }
+        .split.feeds { grid-template-columns: 1.4fr 1fr; }
+
+        /* ---------- Simulator ---------- */
+        .sim {
+            background: var(--surface); border: 1px solid var(--rule); border-radius: 14px; padding: 20px;
+            align-self: start;
+        }
+        .sim .lead { font-size: 14px; }
+        .seg { display: grid; grid-template-columns: 1fr 1fr; margin-top: 16px; padding: 3px; background: var(--surface-2); border-radius: 10px; }
+        .seg button {
+            border: 0; background: transparent; padding: 8px 10px; border-radius: 8px; cursor: pointer;
+            font-family: var(--cond); font-weight: 600; font-size: 15px; color: var(--ink-2);
+        }
+        .seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 0 0 1px var(--ring); }
+        .fields { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 16px; }
+        .fields.two { grid-template-columns: 1fr 1fr; }
+        .field label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-2); margin-bottom: 4px; }
+        .field label .k { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+        .field input, .field select {
+            width: 100%; padding: 8px 10px; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface);
+            font-variant-numeric: tabular-nums;
+        }
+        .field input:focus-visible, .field select:focus-visible { outline: 2px solid var(--flow-in); outline-offset: 0; }
+        .check { display: flex; gap: 10px; align-items: flex-start; margin-top: 16px; font-size: 14px; cursor: pointer; }
+        .check input { margin-top: 4px; accent-color: var(--ink); width: 16px; height: 16px; }
+        .check small { display: block; color: var(--ink-2); font-size: 13px; }
+        .actions { display: flex; gap: 10px; align-items: center; margin-top: 20px; flex-wrap: wrap; }
+        .btn {
+            border: 0; border-radius: 10px; padding: 11px 18px; cursor: pointer;
+            font-family: var(--cond); font-weight: 600; font-size: 16px; background: var(--button); color: var(--button-ink);
+        }
+        .btn:hover { filter: brightness(1.12); }
+        .btn:disabled { opacity: .45; cursor: not-allowed; filter: none; }
+        .btn.stop { background: var(--critical); color: #fff; }
+        .sim-state { font-size: 14px; color: var(--ink-2); }
+        .sim-state b { color: var(--ink); font-weight: 600; }
+        .form-error { color: var(--critical); font-size: 14px; margin-top: 10px; }
+        .hint { font-size: 13px; color: var(--ink-2); margin-top: 14px; border-top: 1px solid var(--rule); padding-top: 12px; }
+
+        /* ---------- Live column ---------- */
+        .live { display: grid; gap: 24px; align-content: start; min-width: 0; }
+        .chart-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+        .legend { display: flex; gap: 16px; font-size: 13px; color: var(--ink-2); list-style: none; padding: 0; margin: 0; }
+        .legend li { display: flex; align-items: center; gap: 6px; }
+        .legend .line { width: 16px; height: 2px; border-radius: 1px; }
+        .chart-status { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 13px; color: var(--ink-2); }
+        .chart-status .dot { width: 8px; height: 8px; }
+        .chart-status[data-live="true"] .dot { background: var(--good); }
+        .chart { position: relative; margin-top: 10px; height: 200px; }
+        .chart svg { display: block; width: 100%; height: 100%; overflow: visible; }
+        .chart .grid line { stroke: var(--rule); stroke-width: 1; }
+        .chart .tick { fill: var(--muted); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+        .chart .base { stroke: var(--axis); stroke-width: 1; }
+        .chart .series { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+        .chart .cross { stroke: var(--muted); stroke-width: 1; }
+        .chart .empty { fill: var(--muted); font-size: 13px; }
+        .tip {
+            position: absolute; pointer-events: none; z-index: 5; min-width: 160px;
+            background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 8px 10px;
+            font-size: 13px; box-shadow: 0 6px 18px rgba(0, 0, 0, .10);
+        }
+        .tip .t { color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+        .tip .row { display: flex; align-items: center; gap: 8px; }
+        .tip .row b { font-weight: 600; min-width: 2.5em; font-variant-numeric: tabular-nums; }
+        .tip .row span:last-child { color: var(--ink-2); }
+        .tip .key { width: 12px; height: 2px; border-radius: 1px; }
+
+        .console-head { display: flex; justify-content: space-between; align-items: baseline; }
+        .console-head span { font-size: 13px; color: var(--muted); }
+        .console {
+            margin: 8px 0 0; height: 220px; overflow: auto; background: var(--console); color: var(--console-ink);
+            border: 1px solid var(--rule); border-radius: 12px; padding: 12px 14px; font: 12.5px/1.55 var(--mono); white-space: pre-wrap; word-break: break-word;
+        }
+        .console .ts { color: var(--console-dim); margin-right: 10px; }
+        .console .cmd { color: #b7aef5; }
+        .console .err { color: #ff9b9b; }
+        .console .ok { color: #7fdc9a; }
+        .console .idle { color: var(--console-dim); }
+
+        /* ---------- Results ---------- */
+        .tabs { display: flex; gap: 6px; margin-top: 16px; border-bottom: 1px solid var(--rule); flex-wrap: wrap; }
+        .tab {
+            display: flex; align-items: center; gap: 8px; border: 0; background: transparent; cursor: pointer;
+            padding: 10px 14px 12px; margin-bottom: -1px; border-bottom: 3px solid transparent;
+            font-family: var(--cond); font-weight: 600; font-size: 17px; color: var(--ink-2);
+        }
+        .tab .k { width: 10px; height: 10px; border-radius: 3px; }
+        .tab .n { font-family: var(--sans); font-weight: 500; font-size: 13px; color: var(--muted); }
+        .tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--tab-color, var(--ink)); }
+        .results-body { display: grid; grid-template-columns: 1fr minmax(260px, 340px); gap: 28px; margin-top: 20px; }
+        .table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; }
+        table { border-collapse: collapse; width: 100%; font-size: 14px; }
+        th, td { padding: 9px 12px; text-align: right; white-space: nowrap; }
+        th:first-child, td:first-child, th.l, td.l { text-align: left; }
+        thead th {
+            font-weight: 500; font-size: 13px; color: var(--ink-2); border-bottom: 1px solid var(--rule);
+            position: sticky; top: 0; background: var(--surface);
+        }
+        tbody tr + tr td { border-top: 1px solid var(--rule); }
+        tbody td { font-variant-numeric: tabular-nums; }
+        th button {
+            all: unset; cursor: pointer; display: inline-flex; gap: 4px; align-items: center;
+        }
+        th button:focus-visible { outline: 2px solid var(--flow-in); outline-offset: 2px; border-radius: 3px; }
+        th[aria-sort] { color: var(--ink); font-weight: 600; }
+        .arrow { font-size: 10px; color: var(--muted); }
+        td .who { font-weight: 600; }
+        td.empty { text-align: left; color: var(--ink-2); padding: 22px 14px; white-space: normal; }
+        .side h3 { margin-bottom: 10px; }
+        .side + .side, .side .block + .block { margin-top: 26px; }
+        .bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+        .bar-row { display: grid; grid-template-columns: 74px 1fr; align-items: center; gap: 10px; font-size: 13px; }
+        .bar-row .name { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .bar-track { position: relative; display: flex; align-items: center; gap: 8px; height: 18px; }
+        .bar { height: 14px; border-radius: 0 4px 4px 0; background: var(--g, var(--ink)); min-width: 2px; }
+        .bar-val { font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 600; font-size: 13px; }
+        .rules { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+        .rules li { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; }
+        .rules b { font-weight: 600; }
+        .rules .c { font-family: var(--cond); font-weight: 600; font-size: 20px; line-height: 1; text-align: right; }
+        .rules small { grid-column: 1 / -1; color: var(--ink-2); font-size: 13px; }
+        .muted { color: var(--ink-2); font-size: 14px; }
+
+        /* ---------- Matches & feed ---------- */
+        .gtag { display: inline-flex; align-items: center; gap: 6px; }
+        .gtag i { width: 8px; height: 8px; border-radius: 2px; display: block; }
+        #matches tbody tr { cursor: pointer; }
+        #matches tbody tr:hover td { background: var(--surface-2); }
+        #matches tbody tr.detail { cursor: default; }
+        #matches tbody tr.detail:hover td { background: transparent; }
+        #matches tr.detail > td { white-space: normal; text-align: left; background: var(--surface-2); padding: 14px; }
+        .detail-grid { display: grid; gap: 10px; }
+        .detail-grid table { background: var(--surface); border-radius: 8px; font-size: 13px; }
+        .detail-grid th, .detail-grid td { padding: 6px 10px; }
+        .pat-chip { display: inline-block; font-size: 12.5px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--rule); margin: 2px 4px 2px 0; background: var(--surface); }
+        .more { margin-top: 10px; border: 0; background: none; color: var(--ink-2); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; font-size: 14px; padding: 0; }
+        .feed { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 0; background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; }
+        .feed li { padding: 11px 14px; display: grid; grid-template-columns: 10px 1fr auto; gap: 2px 10px; align-items: baseline; }
+        .feed li + li { border-top: 1px solid var(--rule); }
+        .feed .k { width: 8px; height: 8px; border-radius: 2px; align-self: center; }
+        .feed .what { font-weight: 600; }
+        .feed .when { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+        .feed .det { grid-column: 2 / -1; color: var(--ink-2); font-size: 13.5px; }
+        .feed .empty { display: block; color: var(--ink-2); }
+        .problems { white-space: normal; text-align: left !important; color: var(--ink-2); }
+
+        /* ---------- Responsive ---------- */
+        @media (max-width: 1020px) {
+            .split.control, .split.feeds, .results-body { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 760px) {
+            .wrap { padding: 0 16px; }
+            .track { grid-template-columns: 1fr; padding: 14px 12px; gap: 6px; }
+            .track::before { left: 31px; right: auto; top: 30px; bottom: 30px; width: 2px; height: auto; }
+            .station { display: grid; grid-template-columns: 22px 1fr auto; column-gap: 14px; text-align: left; padding: 8px 6px; align-items: center; }
+            .node { margin: 0; grid-row: 1 / span 2; }
+            .station h3 { grid-column: 2; }
+            .big { grid-column: 3; grid-row: 1 / span 2; font-size: 34px; margin: 0; text-align: right; }
+            .station .sub { grid-column: 2; min-height: 0; margin: 0; }
+            .fields { grid-template-columns: 1fr 1fr 1fr; }
+            .top .wrap { gap: 12px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .node { transition: none; }
+        }
+    </style>
+</head>
+<body>
+<header class="top">
+    <div class="wrap">
+        <div class="brand">
+            <div class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></div>
+            <div>
+                <h1>GameStats</h1>
+                <p>Eventos de partidas, de Go a Scala, en vivo</p>
+            </div>
+        </div>
+        <ul class="services" aria-label="Estado de los servicios">
+            <li class="svc" id="svc-ingest"><span class="dot"></span><b>Ingest</b><span class="state">Go, revisando…</span></li>
+            <li class="svc" id="svc-analyzer"><span class="dot"></span><b>Analytics</b><span class="state">Scala, revisando…</span></li>
+        </ul>
+        <button class="theme-btn" id="theme-btn" type="button">Tema oscuro</button>
+    </div>
+</header>
+
+<main class="wrap">
+    <section aria-labelledby="route-title">
+        <div class="route-head">
+            <div>
+                <h2 id="route-title">La ruta de un evento</h2>
+                <p class="lead">Cada evento entra a Go, espera en el pipeline hasta que su partida termina y viaja a Scala en un solo lote para analizarse.</p>
+            </div>
+        </div>
+        <div class="track" id="track">
+            <div class="station" data-i="0">
+                <span class="node"></span><h3>Recibidos por Go</h3>
+                <output class="big" id="st-0">0</output><p class="sub" id="st-0-sub">eventos</p>
+            </div>
+            <div class="station" data-i="1">
+                <span class="node"></span><h3>Partidas abiertas</h3>
+                <output class="big" id="st-1">0</output><p class="sub" id="st-1-sub">esperando su final en el pipeline</p>
+            </div>
+            <div class="station" data-i="2">
+                <span class="node"></span><h3>Enviados a Scala</h3>
+                <output class="big" id="st-2">0</output><p class="sub" id="st-2-sub">eventos</p>
+            </div>
+            <div class="station" data-i="3">
+                <span class="node"></span><h3>Partidas analizadas</h3>
+                <output class="big" id="st-3">0</output><p class="sub" id="st-3-sub">en Scala</p>
+            </div>
+            <div class="station" data-i="4">
+                <span class="node"></span><h3>Patrones detectados</h3>
+                <output class="big" id="st-4">0</output><p class="sub" id="st-4-sub">reglas sobre secuencias</p>
+            </div>
+        </div>
+        <div class="notice" id="notice" role="status" hidden></div>
+    </section>
+
+    <div class="split control">
+        <section class="sim" aria-labelledby="sim-title">
+            <h2 id="sim-title">Simulador</h2>
+            <p class="lead">Finge ser los juegos: juega partidas en paralelo y manda cada evento a Go por HTTP.</p>
+
+            <div class="seg" role="group" aria-label="Modo de simulación">
+                <button type="button" id="mode-batch" aria-pressed="true">Una tanda</button>
+                <button type="button" id="mode-continuous" aria-pressed="false">Continuo</button>
+            </div>
+
+            <form id="sim-form" novalidate>
+                <div id="batch-fields">
+                    <div class="fields">
+                        <div class="field"><label for="f-combat"><span class="k" style="background:var(--combat)"></span>Combat</label><input id="f-combat" type="number" min="0" max="50" value="3" inputmode="numeric"></div>
+                        <div class="field"><label for="f-racing"><span class="k" style="background:var(--racing)"></span>Racing</label><input id="f-racing" type="number" min="0" max="50" value="2" inputmode="numeric"></div>
+                        <div class="field"><label for="f-chase"><span class="k" style="background:var(--chase)"></span>Chase</label><input id="f-chase" type="number" min="0" max="50" value="3" inputmode="numeric"></div>
+                    </div>
+                </div>
+                <div id="cont-fields" hidden>
+                    <div class="fields two">
+                        <div class="field"><label for="f-duration">Duración</label>
+                            <select id="f-duration">
+                                <option value="30">30 segundos</option>
+                                <option value="60">1 minuto</option>
+                                <option value="120" selected>2 minutos</option>
+                                <option value="300">5 minutos</option>
+                                <option value="600">10 minutos</option>
+                            </select>
+                        </div>
+                        <div class="field"><label for="f-parallel">Partidas a la vez</label><input id="f-parallel" type="number" min="1" max="50" value="6" inputmode="numeric"></div>
+                    </div>
+                </div>
+                <div class="fields two">
+                    <div class="field"><label for="f-delay">Pausa entre eventos (ms)</label><input id="f-delay" type="number" min="0" max="2000" value="30" inputmode="numeric"></div>
+                    <div class="field"><label for="f-seed">Semilla</label><input id="f-seed" type="text" inputmode="numeric" placeholder="al azar" autocomplete="off"></div>
+                </div>
+                <label class="check"><input id="f-special" type="checkbox" checked>
+                    <span>Incluir partidas guionizadas y casos especiales<small>Remontadas y rutas perfectas, más eventos inválidos, duplicados, tardíos y de otro juego.</small></span>
+                </label>
+                <div class="actions">
+                    <button class="btn" id="sim-btn" type="submit">Iniciar simulación</button>
+                    <span class="sim-state" id="sim-state" aria-live="polite">Detenido</span>
+                </div>
+                <p class="form-error" id="form-error" role="alert" hidden></p>
+            </form>
+            <p class="hint">La misma semilla repite exactamente las mismas partidas: útil para una demo.</p>
+        </section>
+
+        <div class="live">
+            <section aria-labelledby="rate-title">
+                <div class="chart-head">
+                    <h2 id="rate-title">Eventos por segundo</h2>
+                    <ul class="legend">
+                        <li><span class="line" style="background:var(--flow-in)"></span>Recibidos por Go</li>
+                        <li><span class="line" style="background:var(--flow-out)"></span>Enviados a Scala</li>
+                    </ul>
+                </div>
+                <p class="lead">Hasta los últimos 2 minutos. Los envíos a Scala llegan en picos: Go junta toda la partida y la manda cuando termina.</p>
+                <p class="chart-status" id="chart-status" aria-live="polite"></p>
+                <div class="chart" id="rate-chart"></div>
+            </section>
+            <section aria-labelledby="console-title">
+                <div class="console-head">
+                    <h3 id="console-title">Salida del simulador</h3>
+                    <span id="console-run"></span>
+                </div>
+                <pre class="console" id="console" tabindex="0" aria-live="off"><span class="idle">Todavía no hay simulación. Elige el modo y pulsa Iniciar simulación.</span></pre>
+            </section>
+        </div>
+    </div>
+
+    <section aria-labelledby="results-title">
+        <h2 id="results-title">Resultados por juego</h2>
+        <p class="lead">Estadísticas acumuladas por jugador en todas las partidas analizadas. Pulsa una columna para ordenar; el gráfico sigue a la columna elegida.</p>
+        <div class="tabs" role="tablist" aria-label="Juego">
+            <button class="tab" role="tab" id="tab-combat" data-game="combat" aria-selected="true" style="--tab-color:var(--combat)"><span class="k" style="background:var(--combat)"></span>Combat<span class="n" id="n-combat"></span></button>
+            <button class="tab" role="tab" id="tab-racing" data-game="racing" aria-selected="false" tabindex="-1" style="--tab-color:var(--racing)"><span class="k" style="background:var(--racing)"></span>Racing<span class="n" id="n-racing"></span></button>
+            <button class="tab" role="tab" id="tab-chase" data-game="chase" aria-selected="false" tabindex="-1" style="--tab-color:var(--chase)"><span class="k" style="background:var(--chase)"></span>Chase<span class="n" id="n-chase"></span></button>
+        </div>
+        <div class="results-body" role="tabpanel" id="results-panel">
+            <div class="table-wrap"><table id="board"></table></div>
+            <div class="side-col">
+                <div class="side">
+                    <h3 id="bars-title">Por jugador</h3>
+                    <ul class="bars" id="bars"></ul>
+                </div>
+                <div class="side">
+                    <h3>Patrones de este juego</h3>
+                    <ul class="rules" id="rules"></ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="split feeds">
+        <section aria-labelledby="matches-title">
+            <h2 id="matches-title">Partidas analizadas</h2>
+            <p class="lead">Las más recientes primero. Pulsa una fila para ver sus jugadores y patrones.</p>
+            <div class="table-wrap" style="margin-top:14px"><table id="matches"></table></div>
+            <button class="more" id="matches-more" type="button" hidden>Ver todas</button>
+        </section>
+        <section aria-labelledby="feed-title">
+            <h2 id="feed-title">Patrones detectados</h2>
+            <p class="lead">Reglas que miran varios eventos en orden, no uno suelto.</p>
+            <ol class="feed" id="feed"></ol>
+        </section>
+    </div>
+
+    <section aria-labelledby="rej-title">
+        <h2 id="rej-title">Eventos rechazados</h2>
+        <p class="lead">Lo que Go no dejó pasar: eventos inválidos, duplicados, tardíos o de un juego distinto al de su partida.</p>
+        <div class="table-wrap" style="margin-top:14px"><table id="rejected"></table></div>
+    </section>
+</main>
+
+<script>
+    "use strict";
+
+    /* ================= Configuración de los juegos ================= */
+    const GAMES = {
+        combat: {
+            name: "Combat", color: "--combat", who: "Jugador",
+            defaultSort: "kd",
+            cols: [
+                { id: "matchesPlayed", label: "Partidas", get: s => s.matchesPlayed, fmt: "int", better: "high" },
+                { id: "wins", label: "Victorias", get: s => s.wins, fmt: "int", better: "high" },
+                { id: "kills", label: "Eliminaciones", get: s => c(s, "kills"), fmt: "int", better: "high" },
+                { id: "deaths", label: "Muertes", get: s => c(s, "deaths"), fmt: "int", better: "low" },
+                { id: "kd", label: "K/D", get: s => d(s, "kd"), fmt: "2", better: "high" },
+                { id: "accuracy", label: "Precisión", get: s => d(s, "accuracy"), fmt: "pct", better: "high" },
+                { id: "avgDamagePerHit", label: "Daño por impacto", get: s => d(s, "avgDamagePerHit"), fmt: "1", better: "high" },
+                { id: "streaks", label: "Rachas", get: s => p(s, "KILL_STREAK"), fmt: "int", better: "high" },
+            ],
+            rules: {
+                KILL_STREAK: ["Racha de eliminaciones", "3 eliminaciones en menos de 10 s sin morir en medio."],
+                COMEBACK: ["Remontada", "El ganador estuvo 3 eliminaciones abajo en algún momento."],
+            },
+        },
+        racing: {
+            name: "Racing", color: "--racing", who: "Piloto",
+            defaultSort: "podiums",
+            cols: [
+                { id: "matchesPlayed", label: "Carreras", get: s => s.matchesPlayed, fmt: "int", better: "high" },
+                { id: "wins", label: "Victorias", get: s => s.wins, fmt: "int", better: "high" },
+                { id: "podiums", label: "Podios", get: s => c(s, "podiums"), fmt: "int", better: "high" },
+                { id: "avgLapMs", label: "Vuelta promedio (s)", get: s => d(s, "avgLapMs") / 1000, fmt: "2", better: "low" },
+                { id: "consistencyMs", label: "Consistencia (ms)", get: s => d(s, "consistencyMs"), fmt: "0", better: "low" },
+                { id: "crashes", label: "Choques", get: s => c(s, "crashes"), fmt: "int", better: "low" },
+                { id: "positionsGained", label: "Posiciones ganadas", get: s => c(s, "positionsGained"), fmt: "signed", better: "high" },
+            ],
+            rules: {
+                FASTEST_LAP: ["Vuelta más rápida", "La mejor vuelta de toda la carrera."],
+                COMEBACK: ["Remontada", "El ganador iba último después de alguna vuelta."],
+                CLEAN_RACE: ["Carrera limpia", "Terminó en el podio sin chocar."],
+            },
+        },
+        chase: {
+            name: "Chase", color: "--chase", who: "Jugador",
+            defaultSort: "efficiency",
+            cols: [
+                { id: "matchesPlayed", label: "Partidas", get: s => s.matchesPlayed, fmt: "int", better: "high" },
+                { id: "wins", label: "Victorias", get: s => s.wins, fmt: "int", better: "high" },
+                { id: "successRate", label: "Éxito", get: s => d(s, "successRate"), fmt: "pct", better: "high" },
+                { id: "efficiency", label: "Eficiencia", get: s => d(s, "efficiency"), fmt: "pct", better: "high" },
+                { id: "extraTurnsPerWin", label: "Giros extra por victoria", get: s => d(s, "extraTurnsPerWin"), fmt: "1", better: "low" },
+                { id: "hitsPerMatch", label: "Choques por partida", get: s => d(s, "hitsPerMatch"), fmt: "1", better: "low" },
+                { id: "perfect", label: "Rutas perfectas", get: s => p(s, "PERFECT_RUN"), fmt: "int", better: "high" },
+            ],
+            rules: {
+                PERFECT_RUN: ["Ruta perfecta", "Alcanzó a La Mala con los pasos óptimos y sin choques."],
+                CLOSE_CALL: ["Con una sola vida", "Quedó con una vida y después la alcanzó."],
+                NO_ROUTE: ["Sin ruta", "El tablero no tenía camino posible."],
+            },
+        },
+    };
+    function c(s, k) { return (s.counters && s.counters[k]) || 0; }
+    function d(s, k) { return (s.derived && s.derived[k]) || 0; }
+    function p(s, k) { return (s.patternCounts && s.patternCounts[k]) || 0; }
+    function gameOf(id) { return GAMES[id] || { name: id, color: "--muted", rules: {} }; }
+    function ruleLabel(game, rule) { const r = gameOf(game).rules[rule]; return r ? r[0] : rule; }
+
+    /* ================= Utilidades ================= */
+    const $ = id => document.getElementById(id);
+    const nf0 = new Intl.NumberFormat("es-CR", { maximumFractionDigits: 0 });
+    const nf1 = new Intl.NumberFormat("es-CR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    const nf2 = new Intl.NumberFormat("es-CR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    function fmt(v, kind) {
+        if (v == null || Number.isNaN(v)) return "–";
+        switch (kind) {
+            case "int": return nf0.format(v);
+            case "0": return nf0.format(v);
+            case "1": return nf1.format(v);
+            case "2": return nf2.format(v);
+            case "pct": return nf0.format(v * 100) + " %";
+            case "signed": return (v > 0 ? "+" : v < 0 ? "−" : "") + nf0.format(Math.abs(v));
+            default: return String(v);
+        }
+    }
+    function el(tag, props, ...kids) {
+        const n = document.createElement(tag);
+        if (props) for (const [k, v] of Object.entries(props)) {
+            if (k === "class") n.className = v;
+            else if (k === "style") n.setAttribute("style", v);
+            else if (k === "text") n.textContent = v;
+            else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+            else n.setAttribute(k, v);
+        }
+        for (const kid of kids) if (kid != null) n.append(kid);
+        return n;
+    }
+    function gameTag(game) {
+        const g = gameOf(game);
+        return el("span", { class: "gtag" }, el("i", { style: `background:var(${g.color})` }), g.name);
+    }
+    function clock(iso) {
+        if (!iso) return "–";
+        const t = new Date(iso);
+        return t.toLocaleTimeString("es-CR", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+    }
+    function duration(sec) {
+        if (sec == null) return "–";
+        const m = Math.floor(sec / 60), s = Math.round(sec % 60);
+        return m ? `${m} min ${s} s` : `${s} s`;
+    }
+    async function getJSON(path) {
+        const r = await fetch(path, { cache: "no-store" });
+        if (!r.ok) throw new Error(`${r.status}`);
+        return r.json();
+    }
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+    /* ================= Tema ================= */
+    (function theme() {
+        const btn = $("theme-btn");
+        let saved = null;
+        try { saved = localStorage.getItem("gs-theme"); } catch (_) {}
+        if (saved === "light" || saved === "dark") document.documentElement.dataset.theme = saved;
+        const isDark = () => {
+            const t = document.documentElement.dataset.theme;
+            return t ? t === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+        };
+        const label = () => { btn.textContent = isDark() ? "Tema claro" : "Tema oscuro"; };
+        label();
+        btn.addEventListener("click", () => {
+            const next = isDark() ? "light" : "dark";
+            document.documentElement.dataset.theme = next;
+            try { localStorage.setItem("gs-theme", next); } catch (_) {}
+            label();
+            drawRateChart();
+        });
+    })();
+
+    /* ================= Estado ================= */
+    const S = {
+        config: { ingest: "http://localhost:8080", analyzer: "http://localhost:8081" },
+        ingestUp: null, analyzerUp: null,
+        status: null, prevStatus: null,
+        matches: [], players: [], rejected: null,
+        samples: [],            // {t, recv, sent} para eventos por segundo
+        chartEnd: null,         // null = el gráfico avanza; un instante = congelado ahí
+        sim: { state: { status: "idle", run: 0 }, lastSeq: 0, run: 0 },
+        mode: "batch",
+        game: "combat",
+        sort: {},               // por juego: {col, dir}
+        showAllMatches: false,
+        openMatch: null,
+        prevCounts: null,
+    };
+
+    /* ================= Servicios ================= */
+    function setService(id, up, what) {
+        const li = $(id);
+        li.dataset.up = String(up);
+        li.querySelector(".state").textContent = up ? `${what}, en línea` : `${what}, sin conexión`;
+    }
+    function renderNotice() {
+        const n = $("notice");
+        const parts = [];
+        if (S.ingestUp === false) parts.push(["Go (ingest)", S.config.ingest, "go run ./cmd/ingest", "ingest-go"]);
+        if (S.analyzerUp === false) parts.push(["Scala (analytics)", S.config.analyzer, "sbt run", "analytics-scala"]);
+        n.replaceChildren();
+        if (!parts.length) { n.hidden = true; return; }
+        n.hidden = false;
+        const p = el("p");
+        p.append(parts.length === 2 ? "Go y Scala no responden. " : `${parts[0][0]} no responde en ${parts[0][1]}. `);
+        p.append("Para iniciarlo: ");
+        parts.forEach(([name, , cmd, dir], i) => {
+            if (i) p.append("; ");
+            p.append(el("code", { text: cmd }), ` en la carpeta ${dir}`);
+        });
+        p.append(". El panel se reconecta solo.");
+        n.append(p);
+    }
+
+    /* ================= Ruta del evento ================= */
+    function invalidCount(st) {
+        if (!st || !st.pipeline) return 0;
+        const pl = st.pipeline;
+        return Math.max(0, (st.rejected || 0) - pl.duplicates - pl.late - pl.gameMismatch);
+    }
+    function renderRoute() {
+        const st = S.status, pl = st && st.pipeline;
+        const totalPatterns = S.matches.reduce((a, m) => a + m.patterns.length, 0);
+        const players = new Set(S.players.map(s => s.gameId + "/" + s.playerId)).size;
+        const vals = [
+            pl ? pl.received + invalidCount(st) : 0,
+            pl ? pl.openMatches : 0,
+            pl ? pl.eventsSent : 0,
+            S.matches.length,
+            totalPatterns,
+        ];
+        vals.forEach((v, i) => {
+            $("st-" + i).textContent = nf0.format(v);
+            document.querySelector(`.station[data-i="${i}"]`).dataset.on = String(v > 0);
+        });
+
+        if (pl) {
+            const inv = invalidCount(st);
+            $("st-0-sub").textContent = inv ? `${nf0.format(inv)} inválidos rechazados en la entrada` : "eventos válidos e inválidos";
+            const dropped = pl.duplicates + pl.late + pl.gameMismatch;
+            $("st-1-sub").textContent = dropped
+                ? `${nf0.format(dropped)} descartados: ${pl.duplicates} duplicados, ${pl.late} tardíos, ${pl.gameMismatch} de otro juego`
+                : "esperando su final en el pipeline";
+            $("st-2-sub").textContent = `eventos en ${nf0.format(pl.batchesSent)} lotes` + (pl.batchesFailed ? `, ${pl.batchesFailed} fallidos` : "");
+        }
+        $("st-3-sub").textContent = players ? `${nf0.format(players)} jugadores en total` : "en Scala";
+        const byRule = {};
+        S.matches.forEach(m => m.patterns.forEach(x => { byRule[m.gameId + ":" + x.rule] = (byRule[m.gameId + ":" + x.rule] || 0) + 1; }));
+        const top = Object.entries(byRule).sort((a, b) => b[1] - a[1])[0];
+        $("st-4-sub").textContent = top ? `el más común: ${ruleLabel(...top[0].split(":")).toLowerCase()} (${top[1]})` : "reglas sobre secuencias";
+
+        // Pulsos: cuando un contador sube, un punto viaja a la estación siguiente.
+        const prev = S.prevCounts;
+        S.prevCounts = vals;
+        if (!prev || reduceMotion.matches) return;
+        if (vals[0] > prev[0]) pulse(0, 1);
+        if (vals[2] > prev[2]) pulse(1, 2);
+        if (vals[3] > prev[3]) pulse(2, 3);
+        if (vals[4] > prev[4]) pulse(3, 4);
+    }
+    function pulse(from, to) {
+        const track = $("track");
+        const a = track.querySelector(`.station[data-i="${from}"] .node`).getBoundingClientRect();
+        const b = track.querySelector(`.station[data-i="${to}"] .node`).getBoundingClientRect();
+        const t = track.getBoundingClientRect();
+        const dot = el("span", { class: "pulse" });
+        const x0 = a.left + a.width / 2 - t.left, y0 = a.top + a.height / 2 - t.top;
+        const x1 = b.left + b.width / 2 - t.left, y1 = b.top + b.height / 2 - t.top;
+        dot.style.left = x0 + "px"; dot.style.top = y0 + "px";
+        track.append(dot);
+        const anim = dot.animate(
+            [{ transform: "translate(0,0)", opacity: 0 }, { opacity: 1, offset: 0.15 }, { opacity: 1, offset: 0.85 },
+                { transform: `translate(${x1 - x0}px,${y1 - y0}px)`, opacity: 0 }],
+            { duration: 900, easing: "cubic-bezier(.4,0,.2,1)" });
+        anim.onfinish = () => dot.remove();
+    }
+
+    /* ================= Gráfico de eventos por segundo ================= */
+    const WINDOW = 120; // segundos
+    const simActive = () => ["building", "running", "stopping"].includes(S.sim.state.status);
+
+    // El gráfico avanza solo mientras hay actividad: una simulación corriendo, partidas
+    // abiertas en Go que todavía se van a enviar a Scala, o contadores que siguen cambiando.
+    // Cuando todo eso termina, se congela en ese instante para poder leer las cantidades.
+    function addSample(st) {
+        if (!st || !st.pipeline) return;
+        const now = Date.now() / 1000;
+        const recv = st.pipeline.received + invalidCount(st), sent = st.pipeline.eventsSent;
+        let last = S.samples[S.samples.length - 1];
+        if (last && (recv < last.recv || sent < last.sent)) { S.samples = []; last = undefined; } // ingest se reinició
+        const changed = !last || recv !== last.recv || sent !== last.sent;
+        const busy = simActive() || st.pipeline.openMatches > 0 || changed;
+        if (busy) {
+            S.chartEnd = null;
+            S.samples.push({ t: now, recv, sent });
+        } else if (S.chartEnd == null) {
+            S.samples.push({ t: now, recv, sent }); // último punto, y se congela aquí
+            S.chartEnd = now;
+        }
+        const end = S.chartEnd ?? now;
+        while (S.samples.length && S.samples[0].t < end - WINDOW - 2) S.samples.shift();
+    }
+    function renderChartStatus() {
+        const box = $("chart-status");
+        const pl = S.status && S.status.pipeline;
+        const live = S.chartEnd == null && S.ingestUp !== false;
+        box.dataset.live = String(live);
+        let text;
+        if (S.ingestUp === false) text = "Sin conexión con Go.";
+        else if (!live && rates().every(r => r.inRate === 0 && r.outRate === 0)) text = "Sin actividad: el gráfico avanza cuando empiece una simulación.";
+        else if (!live) text = `En pausa desde las ${clock(new Date(S.chartEnd * 1000).toISOString())}: la simulación terminó y no llegan más eventos. Avanza de nuevo con la próxima simulación.`;
+        else if (!simActive() && pl && pl.openMatches > 0) {
+            const n = pl.openMatches;
+            text = `La simulación terminó. Go espera el final de ${n} ${n === 1 ? "partida abierta" : "partidas abiertas"} y ${n === 1 ? "la envía" : "las envía"} cuando dejan de llegar eventos (30 s por defecto).`;
+        } else text = "En vivo.";
+        box.replaceChildren(el("span", { class: "dot" }), text);
+    }
+    function rates() {
+        const out = [];
+        for (let i = 1; i < S.samples.length; i++) {
+            const a = S.samples[i - 1], b = S.samples[i], dt = Math.max(b.t - a.t, 0.001);
+            out.push({ t: b.t, inRate: (b.recv - a.recv) / dt, outRate: (b.sent - a.sent) / dt });
+        }
+        return out;
+    }
+    function niceMax(v) {
+        if (v <= 5) return 5;
+        const p = Math.pow(10, Math.floor(Math.log10(v)));
+        for (const m of [1, 2, 2.5, 5, 10]) if (m * p >= v) return m * p;
+        return 10 * p;
+    }
+    let chartPoints = [];
+    function drawRateChart() {
+        const box = $("rate-chart");
+        const W = box.clientWidth || 600, H = box.clientHeight || 200;
+        const padL = 40, padR = 12, padT = 8, padB = 22;
+        const data = rates();
+        const frozen = S.chartEnd != null;
+        const now = frozen ? S.chartEnd : Date.now() / 1000;
+        // El eje X cubre solo el tramo con datos (hasta 2 min): una tanda corta
+        // ocupa todo el ancho en vez de quedar apretada en el borde derecho.
+        const first = S.samples.length ? S.samples[0].t : now;
+        const span = Math.min(WINDOW, Math.max(5, now - first));
+        const maxV = niceMax(Math.max(0, ...data.map(r => Math.max(r.inRate, r.outRate))));
+        const X = t => padL + (1 - (now - t) / span) * (W - padL - padR);
+        const Y = v => padT + (1 - v / maxV) * (H - padT - padB);
+        const ns = "http://www.w3.org/2000/svg";
+        const svg = document.createElementNS(ns, "svg");
+        svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+        svg.setAttribute("role", "img");
+        svg.setAttribute("aria-label", "Eventos por segundo recibidos por Go y enviados a Scala en los últimos 2 minutos");
+        const add = (parent, tag, attrs, text) => {
+            const n = document.createElementNS(ns, tag);
+            for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+            if (text != null) n.textContent = text;
+            parent.append(n);
+            return n;
+        };
+        const grid = add(svg, "g", { class: "grid" });
+        const steps = maxV % 4 === 0 && maxV % 5 !== 0 ? 4 : 5; // marcas en números redondos
+        for (let i = 0; i <= steps; i++) {
+            const v = maxV * i / steps, y = Y(v);
+            if (i > 0) add(grid, "line", { x1: padL, x2: W - padR, y1: y, y2: y });
+            add(svg, "text", { class: "tick", x: padL - 8, y: y + 4, "text-anchor": "end" }, nf0.format(v));
+        }
+        add(svg, "line", { class: "base", x1: padL, x2: W - padR, y1: Y(0), y2: Y(0) });
+        const at = sec => clock(new Date(sec * 1000).toISOString());
+        const ago = sec => sec >= 60 ? `hace ${nf1.format(sec / 60).replace(",0", "")} min` : `hace ${Math.round(sec)} s`;
+        const labels = frozen
+            ? [[span, at(now - span)], [span / 2, at(now - span / 2)], [0, at(now)]]
+            : [[span, ago(span)], [span / 2, ago(span / 2)], [0, "ahora"]];
+        labels.forEach(([back, txt], i) => {
+            add(svg, "text", { class: "tick", x: X(now - back), y: H - 4, "text-anchor": i === 0 ? "start" : i === 2 ? "end" : "middle" }, txt);
+        });
+        const quiet = data.every(r => r.inRate === 0 && r.outRate === 0);
+        if (data.length < 2 || (frozen && quiet)) {
+            add(svg, "text", { class: "empty", x: (padL + W - padR) / 2, y: H / 2, "text-anchor": "middle" },
+                S.ingestUp === false ? "Sin conexión con Go" : frozen ? "Sin actividad. Inicia una simulación para ver el flujo." : "Esperando eventos…");
+        } else {
+            const path = key => data.map((r, i) => `${i ? "L" : "M"}${X(r.t).toFixed(1)} ${Y(r[key]).toFixed(1)}`).join("");
+            add(svg, "path", { class: "series", d: path("outRate"), stroke: "var(--flow-out)" });
+            add(svg, "path", { class: "series", d: path("inRate"), stroke: "var(--flow-in)" });
+        }
+        chartPoints = (frozen && quiet ? [] : data).map(r => ({ ...r, x: X(r.t), yIn: Y(r.inRate), yOut: Y(r.outRate) }));
+        box.querySelector("svg")?.remove();
+        box.prepend(svg);
+        if (hoverX != null) showTip(hoverX);
+    }
+    let hoverX = null;
+    function showTip(x) {
+        const box = $("rate-chart");
+        let tip = box.querySelector(".tip");
+        const svg = box.querySelector("svg");
+        svg.querySelector(".cross")?.remove();
+        if (!chartPoints.length) { tip?.remove(); return; }
+        let best = chartPoints[0];
+        for (const pt of chartPoints) if (Math.abs(pt.x - x) < Math.abs(best.x - x)) best = pt;
+        const ns = "http://www.w3.org/2000/svg";
+        const line = document.createElementNS(ns, "line");
+        line.setAttribute("class", "cross");
+        line.setAttribute("x1", best.x); line.setAttribute("x2", best.x);
+        line.setAttribute("y1", 8); line.setAttribute("y2", box.clientHeight - 22);
+        svg.append(line);
+        for (const [y, col] of [[best.yIn, "var(--flow-in)"], [best.yOut, "var(--flow-out)"]]) {
+            const c = document.createElementNS(ns, "circle");
+            c.setAttribute("cx", best.x); c.setAttribute("cy", y); c.setAttribute("r", 4);
+            c.setAttribute("fill", col); c.setAttribute("stroke", "var(--surface)"); c.setAttribute("stroke-width", 2);
+            c.setAttribute("class", "cross-dot");
+            svg.append(c);
+        }
+        if (!tip) { tip = el("div", { class: "tip", role: "status" }); box.append(tip); }
+        tip.replaceChildren(
+            el("div", { class: "t", text: clock(new Date(best.t * 1000).toISOString()) }),
+            el("div", { class: "row" }, el("span", { class: "key", style: "background:var(--flow-in)" }), el("b", { text: nf1.format(best.inRate) }), el("span", { text: "recibidos por Go" })),
+            el("div", { class: "row" }, el("span", { class: "key", style: "background:var(--flow-out)" }), el("b", { text: nf1.format(best.outRate) }), el("span", { text: "enviados a Scala" })),
+        );
+        const left = best.x + 12 + 170 > box.clientWidth ? best.x - 182 : best.x + 12;
+        tip.style.left = left + "px"; tip.style.top = "6px";
+    }
+    function hideTip() {
+        hoverX = null;
+        const box = $("rate-chart");
+        box.querySelector(".tip")?.remove();
+        box.querySelectorAll(".cross, .cross-dot").forEach(n => n.remove());
+    }
+    $("rate-chart").addEventListener("pointermove", e => {
+        hoverX = e.clientX - $("rate-chart").getBoundingClientRect().left;
+        showTip(hoverX);
+    });
+    $("rate-chart").addEventListener("pointerleave", hideTip);
+    new ResizeObserver(() => drawRateChart()).observe($("rate-chart"));
+
+    /* ================= Simulador ================= */
+    function setMode(mode) {
+        S.mode = mode;
+        $("mode-batch").setAttribute("aria-pressed", String(mode === "batch"));
+        $("mode-continuous").setAttribute("aria-pressed", String(mode === "continuous"));
+        $("batch-fields").hidden = mode !== "batch";
+        $("cont-fields").hidden = mode !== "continuous";
+    }
+    $("mode-batch").addEventListener("click", () => setMode("batch"));
+    $("mode-continuous").addEventListener("click", () => setMode("continuous"));
+
+    function intField(id) { const v = parseInt($(id).value, 10); return Number.isFinite(v) ? v : 0; }
+    $("sim-form").addEventListener("submit", async e => {
+        e.preventDefault();
+        const err = $("form-error");
+        err.hidden = true;
+        const active = ["building", "running", "stopping"].includes(S.sim.state.status);
+        try {
+            if (active) {
+                await fetch("/api/sim/stop", { method: "POST" });
+            } else {
+                const seedTxt = $("f-seed").value.trim();
+                if (seedTxt && !/^\d+$/.test(seedTxt)) throw new Error("La semilla debe ser un número entero positivo.");
+                const body = {
+                    mode: S.mode,
+                    combat: intField("f-combat"), racing: intField("f-racing"), chase: intField("f-chase"),
+                    special: $("f-special").checked,
+                    delayMs: intField("f-delay"),
+                    seed: seedTxt ? Number(seedTxt) : 0,
+                    durationSec: parseInt($("f-duration").value, 10),
+                    parallel: intField("f-parallel"),
+                };
+                const r = await fetch("/api/sim/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+                if (!r.ok) {
+                    const j = await r.json().catch(() => ({}));
+                    throw new Error(j.error ? capitalize(j.error) + "." : `El panel respondió ${r.status}.`);
+                }
+            }
+            await pollSim();
+        } catch (ex) {
+            err.textContent = ex.message;
+            err.hidden = false;
+        }
+    });
+    function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+    let simTimer = null;
+    function renderSimState() {
+        const st = S.sim.state;
+        const btn = $("sim-btn");
+        const active = ["building", "running", "stopping"].includes(st.status);
+        if (active && st.mode && st.mode !== S.mode) setMode(st.mode); // la página se abrió con una simulación ya corriendo
+        btn.textContent = active ? (st.status === "stopping" ? "Deteniendo…" : "Detener simulación") : "Iniciar simulación";
+        btn.classList.toggle("stop", active);
+        btn.disabled = st.status === "stopping";
+        document.querySelectorAll("#sim-form input, #sim-form select, .seg button").forEach(n => { n.disabled = active; });
+
+        const box = $("sim-state");
+        box.replaceChildren();
+        const since = st.startedAt ? (Date.parse(st.finishedAt || new Date().toISOString()) - Date.parse(st.startedAt)) / 1000 : 0;
+        const mode = st.mode === "continuous" ? "modo continuo" : "una tanda";
+        switch (st.status) {
+            case "building": box.append(el("b", { text: "Preparando" }), ", compilando el simulador"); break;
+            case "running": box.append(el("b", { text: "Corriendo" }), ` ${mode}, ${duration(since)}`); break;
+            case "stopping": box.append(el("b", { text: "Deteniendo" }), ", termina las partidas en curso"); break;
+            case "finished": box.append(el("b", { text: "Terminó" }), ` en ${duration(since)}`); break;
+            case "stopped": box.append(el("b", { text: "Detenida" }), ` después de ${duration(since)}`); break;
+            case "failed": box.append(el("b", { text: "Falló" }), st.error ? `: ${st.error}` : ""); break;
+            default: box.append("Detenido");
+        }
+        $("console-run").textContent = st.run ? `ejecución ${st.run}` : "";
+    }
+    function lineClass(t) {
+        if (t.startsWith("$ ")) return "cmd";
+        if (/^Listo en|jugadas en total/.test(t)) return "ok";
+        if (/^ERROR|falló|no se pudo|fatal|no existe/i.test(t)) return "err";
+        return "";
+    }
+    function appendLines(lines) {
+        const con = $("console");
+        if (!lines.length) return;
+        const atBottom = con.scrollHeight - con.scrollTop - con.clientHeight < 30;
+        con.querySelector(".idle")?.remove();
+        for (const l of lines) {
+            const row = el("div", { class: lineClass(l.text) });
+            row.append(el("span", { class: "ts", text: clock(l.at) }), l.text || " ");
+            con.append(row);
+        }
+        while (con.childElementCount > 400) con.firstElementChild.remove();
+        if (atBottom) con.scrollTop = con.scrollHeight;
+    }
+    async function pollSim() {
+        try {
+            const j = await getJSON(`/api/sim?since=${S.sim.lastSeq}`);
+            if (j.state.run !== S.sim.run) {           // ejecución nueva: consola y gráfico de cero
+                $("console").replaceChildren();
+                S.samples = []; S.chartEnd = null;
+                S.sim.run = j.state.run;
+            }
+            if (j.lastSeq < S.sim.lastSeq) { S.sim.lastSeq = 0; $("console").replaceChildren(); return pollSim(); } // el panel se reinició
+            S.sim.state = j.state;
+            appendLines(j.lines);
+            S.sim.lastSeq = j.lastSeq;
+            renderSimState();
+        } catch (_) { /* el propio panel no responde: se reintenta en el próximo ciclo */ }
+    }
+
+    /* ================= Resultados por juego ================= */
+    document.querySelectorAll(".tab").forEach(t => {
+        t.addEventListener("click", () => selectGame(t.dataset.game));
+        t.addEventListener("keydown", e => {
+            const order = ["combat", "racing", "chase"];
+            let i = order.indexOf(S.game);
+            if (e.key === "ArrowRight") i = (i + 1) % 3; else if (e.key === "ArrowLeft") i = (i + 2) % 3; else return;
+            e.preventDefault(); selectGame(order[i]); $("tab-" + order[i]).focus();
+        });
+    });
+    function selectGame(game) {
+        S.game = game;
+        document.querySelectorAll(".tab").forEach(t => {
+            const on = t.dataset.game === game;
+            t.setAttribute("aria-selected", String(on));
+            t.tabIndex = on ? 0 : -1;
+        });
+        $("results-panel").setAttribute("aria-labelledby", "tab-" + game);
+        renderResults();
+    }
+    function sortState(game) {
+        if (!S.sort[game]) {
+            const col = GAMES[game].cols.find(x => x.id === GAMES[game].defaultSort);
+            S.sort[game] = { col: col.id, dir: col.better === "low" ? "asc" : "desc" };
+        }
+        return S.sort[game];
+    }
+    function renderResults() {
+        const game = S.game, G = GAMES[game];
+        const rows = S.players.filter(s => s.gameId === game);
+        const ss = sortState(game);
+        const col = ss.col === "player" ? null : G.cols.find(x => x.id === ss.col);
+        rows.sort((a, b) => {
+            const r = col ? col.get(a) - col.get(b) : a.playerId.localeCompare(b.playerId);
+            return (ss.dir === "asc" ? r : -r) || a.playerId.localeCompare(b.playerId);
+        });
+
+        for (const g of Object.keys(GAMES)) {
+            const n = S.matches.filter(m => m.gameId === g).length;
+            $("n-" + g).textContent = n ? `${n} ${n === 1 ? "partida" : "partidas"}` : "";
+        }
+
+        // Tabla
+        const table = $("board");
+        const headRow = el("tr");
+        const allCols = [{ id: "player", label: G.who, better: "high" }, ...G.cols];
+        allCols.forEach(cdef => {
+            const sorted = ss.col === cdef.id;
+            const th = el("th", { scope: "col" });
+            if (sorted) th.setAttribute("aria-sort", ss.dir === "asc" ? "ascending" : "descending");
+            const b = el("button", { type: "button" }, cdef.label);
+            if (sorted) b.append(el("span", { class: "arrow", "aria-hidden": "true", text: ss.dir === "asc" ? "▲" : "▼" }));
+            b.addEventListener("click", () => {
+                if (ss.col === cdef.id) ss.dir = ss.dir === "asc" ? "desc" : "asc";
+                else { ss.col = cdef.id; ss.dir = cdef.id === "player" ? "asc" : (cdef.better === "low" ? "asc" : "desc"); }
+                renderResults();
+                table.querySelector(`th[aria-sort] button`)?.focus();
+            });
+            th.append(b);
+            headRow.append(th);
+        });
+        const tbody = el("tbody");
+        if (!rows.length) {
+            tbody.append(el("tr", null, el("td", { class: "empty", colspan: String(allCols.length) },
+                S.analyzerUp === false ? "Sin conexión con Scala: no hay resultados que mostrar."
+                    : `Todavía no hay partidas de ${G.name} analizadas. Inicia una simulación y aparecerán aquí cuando termine la primera partida.`)));
+        }
+        rows.forEach(s => {
+            const tr = el("tr");
+            tr.append(el("td", null, el("span", { class: "who", text: s.playerId })));
+            G.cols.forEach(cdef => tr.append(el("td", { text: fmt(cdef.get(s), cdef.fmt) })));
+            tbody.append(tr);
+        });
+        table.replaceChildren(el("caption", { class: "sr", text: `Estadísticas de ${G.name} por jugador` }), el("thead", null, headRow), tbody);
+
+        // Barras: siguen a la columna elegida (o a la métrica principal si se ordena por nombre)
+        const metric = col || G.cols.find(x => x.id === G.defaultSort);
+        $("bars-title").textContent = `${metric.label} por ${G.who.toLowerCase()}`;
+        const top = (col ? rows : [...rows].sort((a, b) => metric.better === "low" ? metric.get(a) - metric.get(b) : metric.get(b) - metric.get(a))).slice(0, 10);
+        const vals = top.map(s => metric.get(s));
+        const maxAbs = Math.max(...vals.map(Math.abs), 0) || 1;
+        const bars = $("bars");
+        bars.replaceChildren();
+        if (!top.length) bars.append(el("li", { class: "muted", text: "Sin datos todavía." }));
+        top.forEach((s, i) => {
+            const v = vals[i];
+            const w = Math.max(0, Math.abs(v) / maxAbs * 100);
+            const li = el("li", { class: "bar-row" },
+                el("span", { class: "name", text: s.playerId, title: s.playerId }),
+                el("span", { class: "bar-track" },
+                    el("span", { class: "bar", style: `width:calc(${w}% - 64px);--g:var(${G.color})` }),
+                    el("span", { class: "bar-val", text: fmt(v, metric.fmt) })));
+            bars.append(li);
+        });
+        if (top.length && metric.better === "low") bars.append(el("li", { class: "muted", text: "En esta métrica, menos es mejor." }));
+
+        // Patrones del juego
+        const counts = {};
+        S.matches.filter(m => m.gameId === game).forEach(m => m.patterns.forEach(x => { counts[x.rule] = (counts[x.rule] || 0) + 1; }));
+        const rules = $("rules");
+        rules.replaceChildren();
+        Object.entries(G.rules).forEach(([rule, [label, desc]]) => {
+            rules.append(el("li", null, el("b", { text: label }), el("span", { class: "c", text: nf0.format(counts[rule] || 0) }), el("small", { text: desc })));
+        });
+    }
+
+    /* ================= Partidas y patrones ================= */
+    function sortedMatches() {
+        return [...S.matches].sort((a, b) => (Date.parse(b.finishedAt || 0) - Date.parse(a.finishedAt || 0)) || b.matchId.localeCompare(a.matchId));
+    }
+    function renderMatches() {
+        const list = sortedMatches();
+        const shown = S.showAllMatches ? list : list.slice(0, 12);
+        const table = $("matches");
+        const head = el("tr", null, ...["Partida", "Juego", "Ganador", "Duración", "Eventos", "Patrones"].map((h, i) => el("th", { scope: "col", class: i < 3 ? "l" : "", text: h })));
+        const tbody = el("tbody");
+        if (!list.length) tbody.append(el("tr", null, el("td", { class: "empty", colspan: "6", text: "Aún no hay partidas analizadas." })));
+        shown.forEach(m => {
+            const events = Object.values(m.eventCounts || {}).reduce((a, b) => a + b, 0);
+            const open = S.openMatch === m.matchId;
+            const tr = el("tr", { tabindex: "0", "aria-expanded": String(open) },
+                el("td", null, el("span", { class: "who", text: m.matchId })),
+                el("td", { class: "l" }, gameTag(m.gameId)),
+                el("td", { class: "l", text: m.winnerId || "sin ganador" }),
+                el("td", { text: duration(m.durationSeconds) }),
+                el("td", { text: nf0.format(events) }),
+                el("td", { text: nf0.format(m.patterns.length) }));
+            const toggle = () => { S.openMatch = open ? null : m.matchId; renderMatches(); };
+            tr.addEventListener("click", toggle);
+            tr.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } });
+            tbody.append(tr);
+            if (open) tbody.append(matchDetail(m));
+        });
+        table.replaceChildren(el("thead", null, head), tbody);
+        const more = $("matches-more");
+        more.hidden = list.length <= 12;
+        more.textContent = S.showAllMatches ? "Ver solo las recientes" : `Ver todas (${list.length})`;
+    }
+    $("matches-more").addEventListener("click", () => { S.showAllMatches = !S.showAllMatches; renderMatches(); });
+
+    function matchDetail(m) {
+        const G = GAMES[m.gameId];
+        const cols = G ? G.cols.filter(x => !["matchesPlayed", "wins", "streaks", "perfect"].includes(x.id)) : [];
+        const head = el("tr", null, el("th", { scope: "col", text: G ? G.who : "Jugador" }), ...cols.map(x => el("th", { scope: "col", text: x.label })));
+        const body = el("tbody");
+        m.players.forEach(pl => {
+            const s = { counters: pl.counters, derived: pl.derived, patternCounts: {} };
+            body.append(el("tr", null, el("td", null, el("span", { class: "who", text: pl.playerId })), ...cols.map(x => el("td", { text: fmt(x.get(s), x.fmt) }))));
+        });
+        const pats = el("div");
+        if (m.patterns.length) m.patterns.forEach(x => pats.append(el("span", { class: "pat-chip", text: `${ruleLabel(m.gameId, x.rule)}: ${x.playerId}` })));
+        else pats.append(el("span", { class: "muted", text: "Sin patrones en esta partida." }));
+        const inner = el("div", { class: "detail-grid" });
+        if (cols.length) inner.append(el("div", { style: "overflow-x:auto" }, el("table", null, el("thead", null, head), body)));
+        inner.append(pats);
+        return el("tr", { class: "detail" }, el("td", { colspan: "6" }, inner));
+    }
+
+    function renderFeed() {
+        const items = [];
+        S.matches.forEach(m => m.patterns.forEach(x => items.push({ ...x, game: m.gameId, matchId: m.matchId, t: Date.parse(x.at || m.finishedAt || 0) })));
+        items.sort((a, b) => b.t - a.t);
+        const feed = $("feed");
+        feed.replaceChildren();
+        if (!items.length) { feed.append(el("li", null, el("span", { class: "empty", text: "Ningún patrón todavía. Las partidas guionizadas del simulador disparan uno de cada tipo." }))); return; }
+        items.slice(0, 10).forEach(x => {
+            feed.append(el("li", null,
+                el("span", { class: "k", style: `background:var(${gameOf(x.game).color})`, title: gameOf(x.game).name }),
+                el("span", { class: "what", text: `${ruleLabel(x.game, x.rule)}: ${x.playerId}` }),
+                el("span", { class: "when", text: clock(x.at) }),
+                el("span", { class: "det", text: `${x.details} (${gameOf(x.game).name}, ${x.matchId})` })));
+        });
+    }
+
+    function renderRejected() {
+        const table = $("rejected");
+        const r = S.rejected;
+        const head = el("tr", null, ...["Hora", "Evento", "Partida", "Problema"].map(h => el("th", { scope: "col", class: "l", text: h })));
+        const tbody = el("tbody");
+        const recent = r && r.recent ? [...r.recent].reverse().slice(0, 8) : [];
+        if (!recent.length) tbody.append(el("tr", null, el("td", { class: "empty", colspan: "4",
+            text: S.ingestUp === false ? "Sin conexión con Go." : "Ningún evento rechazado. Con los casos especiales activados, el simulador manda algunos a propósito." })));
+        recent.forEach(x => tbody.append(el("tr", null,
+            el("td", { text: clock(x.receivedAt) }),
+            el("td", { class: "l", text: x.eventId || "–" }),
+            el("td", { class: "l", text: x.matchId || "–" }),
+            el("td", { class: "problems", text: (x.problems || []).join("; ") }))));
+        const cap = el("caption", { class: "sr", text: "Eventos rechazados recientes" });
+        table.replaceChildren(cap, el("thead", null, head), tbody);
+        if (r && r.total > recent.length) {
+            tbody.append(el("tr", null, el("td", { class: "empty", colspan: "4", text: `Mostrando ${recent.length} de ${nf0.format(r.total)} rechazados en total.` })));
+        }
+    }
+
+    /* ================= Ciclos de consulta ================= */
+    async function pollFast() {
+        await pollSim(); // primero el simulador: addSample necesita saber si sigue corriendo
+        try {
+            const st = await getJSON("/api/ingest/status");
+            S.status = st; S.ingestUp = true;
+            addSample(st);
+        } catch (_) {
+            S.ingestUp = false;
+            if (S.chartEnd == null && S.samples.length) S.chartEnd = Date.now() / 1000; // sin Go no hay datos nuevos
+        }
+        setService("svc-ingest", S.ingestUp, "Go");
+        renderNotice();
+        renderRoute();
+        renderChartStatus();
+        drawRateChart();
+    }
+    let slowBusy = false;
+    async function pollSlow() {
+        if (slowBusy) return;
+        slowBusy = true;
+        try {
+            const [m, pl] = await Promise.all([getJSON("/api/analyzer/results/matches"), getJSON("/api/analyzer/results/players")]);
+            S.matches = m; S.players = pl; S.analyzerUp = true;
+        } catch (_) { S.analyzerUp = false; }
+        try { S.rejected = await getJSON("/api/ingest/rejected"); } catch (_) {}
+        setService("svc-analyzer", S.analyzerUp, "Scala");
+        renderNotice(); renderRoute(); renderResults(); renderMatches(); renderFeed(); renderRejected();
+        slowBusy = false;
+    }
+
+    (async function start() {
+        try { S.config = await getJSON("/api/config"); } catch (_) {}
+        renderResults(); renderMatches(); renderFeed(); renderRejected(); drawRateChart();
+        await Promise.all([pollFast(), pollSlow()]);
+        setInterval(pollFast, 1000);
+        setInterval(pollSlow, 2000);
+    })();
+</script>
+</body>
+</html>

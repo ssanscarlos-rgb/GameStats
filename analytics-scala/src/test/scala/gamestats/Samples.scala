@@ -19,4 +19,3 @@ object Samples:
     decode[AnalyzeRequest](Files.readString(path(file))) match
       case Right(req) => req.events
       case Left(err)  => throw err // io.circe.Error es una excepción
- 
