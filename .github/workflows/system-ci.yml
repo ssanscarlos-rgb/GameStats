@@ -1,0 +1,71 @@
+# Prueba del sistema completo: levanta Scala, el ingest y el panel con Docker
+# Compose, corre el simulador y comprueba que las partidas recorrieron todo el
+# camino (simulador → Go → Scala) y que los analizadores de cada juego funcionan.
+#
+# Las pruebas de cada módulo viven en go-ci.yml y scala-ci.yml; esta prueba
+# responde otra pregunta: ¿los módulos se entienden entre ellos?
+name: Sistema completo
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:        # también se puede lanzar a mano desde la pestaña Actions
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    env:
+      IDLE_TIMEOUT: 5s      # la carrera abandonada se envía a los 5 s en vez de 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Construir y levantar los servicios
+        # --wait espera a que los healthchecks digan que Scala y el ingest responden.
+        run: docker compose up -d --build --wait
+
+      - name: Correr el simulador (tanda fija, semilla 42)
+        run: docker compose run --rm simulator -seed 42 -delay 0ms
+
+      - name: Esperar a que Scala analice todas las partidas
+        run: |
+          # 8 partidas al azar + 5 guionizadas + 1 mixta = 14
+          for i in $(seq 1 30); do
+            n=$(curl -s localhost:8081/results/matches | jq length)
+            echo "partidas analizadas: $n"
+            [ "$n" -ge 14 ] && exit 0
+            sleep 2
+          done
+          echo "Scala no recibió las 14 partidas a tiempo"
+          exit 1
+
+      - name: Comprobar resultados
+        run: |
+          set -e
+          matches=$(curl -s localhost:8081/results/matches)
+          status=$(curl -s localhost:8080/status)
+
+          echo "Los tres juegos llegaron a Scala"
+          echo "$matches" | jq -e '[.[].gameId] | unique == ["chase","combat","racing"]'
+
+          echo "Racing y chase usan su propio analizador, no el genérico"
+          echo "$matches" | jq -e '[.[] | select(.gameId=="racing") | .players[].counters | has("lapsCompleted")] | all'
+          echo "$matches" | jq -e '[.[] | select(.gameId=="chase")  | .players[].counters | has("routeFound")]    | all'
+
+          echo "Se detectaron patrones de los tres juegos"
+          echo "$matches" | jq -e '[.[] | select(.patterns | length > 0) | .gameId] | unique | length == 3'
+
+          echo "Go rechazó los casos especiales y no falló ningún envío"
+          echo "$status" | jq -e '.rejected >= 10 and .pipeline.batchesFailed == 0'
+
+          echo "El panel responde y ve a los dos servicios"
+          curl -sf localhost:8090/ > /dev/null
+          curl -sf localhost:8090/api/ingest/status > /dev/null
+          curl -sf localhost:8090/api/analyzer/results/players > /dev/null
+
+      - name: Mostrar logs si algo falló
+        if: failure()
+        run: docker compose logs
+
+      - name: Apagar
+        if: always()
+        run: docker compose down
