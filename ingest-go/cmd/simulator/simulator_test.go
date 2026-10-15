@@ -165,3 +165,16 @@ func TestSameSeedSameMatches(t *testing.T) {
 		}
 	}
 }
+
+func TestRandomMatchesAreValid(t *testing.T) {
+	r := rand.New(rand.NewPCG(3, 3))
+	games := map[string]int{}
+	for n := 1; n <= 60; n++ {
+		pm := randomMatch(r, 3, "test", n)
+		games[pm.game]++
+		checkMatch(t, pm.id, pm.events, true)
+	}
+	if len(games) != 3 {
+		t.Errorf("deberían salir los tres juegos: %v", games)
+	}
+}

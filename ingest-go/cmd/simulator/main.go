@@ -8,6 +8,7 @@
 //	go run ./cmd/simulator                       # contra localhost:8080
 //	go run ./cmd/simulator -combat 5 -delay 0    # más partidas, sin pausas
 //	go run ./cmd/simulator -out ../samples/sim   # escribir JSON en vez de enviar
+//	go run ./cmd/simulator -duration 10m         # modo continuo: partidas nuevas durante 10 min
 package main
 
 import (
@@ -39,6 +40,8 @@ func main() {
 	seed := flag.Uint64("seed", 0, "semilla del azar (0 = distinta en cada ejecución)")
 	special := flag.Bool("special", true, "incluir partidas guionizadas y casos especiales")
 	out := flag.String("out", "", "carpeta donde escribir las partidas como JSON en lugar de enviarlas")
+	duration := flag.Duration("duration", 0, "modo continuo: jugar partidas nuevas durante este tiempo (ej. 5m, 1h). 0 = una sola tanda")
+	parallel := flag.Int("parallel", 6, "modo continuo: cuántas partidas en curso al mismo tiempo")
 	flag.Parse()
 
 	if *seed == 0 {
@@ -59,21 +62,26 @@ func main() {
 	if err := s.waitReady(60 * time.Second); err != nil {
 		log.Fatal(err)
 	}
+	started := time.Now()
+	if *duration > 0 {
+		played := runContinuous(s, *seed, run, *duration, *parallel, *delay, *special)
+		if *special {
+			sendSpecialCases(s, played, run)
+		}
+		printSummary(s, started, *url)
+		return
+	}
+
 	printPlan(matches, *seed)
 
 	// Cada partida se juega en su propia goroutine: sus eventos se intercalan
 	// con los de las demás, como si varios juegos corrieran al mismo tiempo.
-	started := time.Now()
 	var wg sync.WaitGroup
 	for i, pm := range matches {
 		wg.Add(1)
 		go func(i int, pm planned) {
 			defer wg.Done()
-			r := rand.New(rand.NewPCG(*seed, uint64(1000+i)))
-			for _, e := range pm.events {
-				s.sendEvent(e)
-				pause(r, *delay)
-			}
+			playMatch(s, pm, rand.New(rand.NewPCG(*seed, uint64(1000+i))), *delay)
 		}(i, pm)
 	}
 	wg.Wait()
@@ -82,9 +90,21 @@ func main() {
 		sendSpecialCases(s, matches, run)
 	}
 
+	printSummary(s, started, *url)
+}
+
+// playMatch manda los eventos de una partida uno por uno, con pausas.
+func playMatch(s *sender, pm planned, r *rand.Rand, delay time.Duration) {
+	for _, e := range pm.events {
+		s.sendEvent(e)
+		pause(r, delay)
+	}
+}
+
+func printSummary(s *sender, started time.Time, url string) {
 	fmt.Printf("\nListo en %s. Peticiones: %d · eventos aceptados: %d · rechazados: %d · errores de red: %d\n",
 		time.Since(started).Round(time.Millisecond), s.sent.Load(), s.accepted.Load(), s.rejected.Load(), s.failed.Load())
-	fmt.Printf("Revisa: curl %s/status   y   curl %s/rejected\n", *url, *url)
+	fmt.Printf("Revisa: curl %s/status   y   curl %s/rejected\n", url, url)
 }
 
 // plan genera TODAS las partidas antes de enviar nada. Con la misma semilla
