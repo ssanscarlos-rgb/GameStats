@@ -1,9 +1,9 @@
 name: Scala CI
 on:
   push:
-    paths: ['analytics-scala/**', '.github/workflows/scala-ci.yml']
+    paths: ['analytics-scala/**', 'samples/**', '.github/workflows/scala-ci.yml']
   pull_request:
-    paths: ['analytics-scala/**']
+    paths: ['analytics-scala/**', 'samples/**']
 jobs:
   build:
     runs-on: ubuntu-latest

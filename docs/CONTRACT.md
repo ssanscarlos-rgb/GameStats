@@ -1,28 +1,33 @@
-# GameStats — Contrato de integración Go ↔ Scala
+# GameStats — Formato de eventos y contrato entre módulos
 
-**Versión:** 0.2 (borrador para acordar entre Jean y Andrés; agrega `racing` y `chase`)
+**Versión:** 1.0 (versión final; juegos `combat`, `racing` y `chase`, los tres con analizador propio)
 **Transporte:** HTTP/REST con JSON (UTF-8, `Content-Type: application/json`)
-**Servicio Scala (análisis):** `http://analyzer:8081` (variable `PORT`)
-**Cliente:** el módulo Go (ingestión) llama a Scala. Scala nunca llama a Go.
+**Servicio Go (ingestión):** `http://ingest:8080` (variable `PORT`). Lo usan las fuentes de eventos.
+**Servicio Scala (análisis):** `http://analyzer:8081` (variable `PORT`). Lo usa Go para entregar partidas y cualquier consumidor para leer resultados.
+**Dirección de las llamadas:** fuente → Go → Scala. Scala nunca llama a Go.
 
-Justificación técnica de HTTP/REST: ambos lenguajes lo soportan en su librería estándar o con dependencias mínimas, es fácil de probar con `curl`, funciona igual en Docker Compose, y un componente externo puede producir eventos sin conocer la implementación interna.
+Este documento es todo lo que necesita un componente externo para producir eventos (secciones 2 y 6) o consultar resultados (secciones 3 y 4) sin conocer la implementación interna.
+
+Justificación técnica de HTTP/REST: ambos lenguajes lo soportan en su librería estándar o con dependencias mínimas, es fácil de probar con `curl`, funciona igual en Docker Compose, y un componente externo puede producir eventos sin conocer la implementación interna. Más detalle en `docs/DISENO.md`.
 
 ---
 
 ## 1. Flujo general
 
 ```
-Fuente externa (simulador) → Go: recibe, valida, agrupa por partida (goroutines/channels)
+Fuente externa (simulador) → Go: POST /events — recibe y valida cada evento
+                           → Go: agrupa por partida (goroutines/channels)
                            → Go: POST /analyze (partida completa) → Scala: analiza y guarda
-Consumidor / UI            → Scala: GET /results/...
+Consumidor / panel web     → Scala: GET /results/...   y   Go: GET /status, /rejected
 ```
 
 | Responsabilidad | Go | Scala |
 |---|---|---|
 | Recibir eventos de la fuente | ✅ | |
 | Validar estructura básica y descartar inválidos | ✅ | |
-| Eliminar duplicados (`eventId`) | ✅ | |
+| Eliminar duplicados (`eventId`), eventos tardíos y de otro juego | ✅ | |
 | Agrupar por partida, decidir cuándo está lista | ✅ | |
+| Entregar la partida a Scala, reintentar si falla | ✅ | |
 | Ordenar por `timestamp`, agrupar, calcular estadísticas | | ✅ |
 | Detectar patrones sobre secuencias | | ✅ |
 | Exponer resultados | | ✅ |
@@ -68,7 +73,7 @@ Los campos opcionales pueden omitirse o ir en `null`.
 | `PLAYER_LEFT` | jugador | – |
 | `MATCH_FINISHED` | – | `winnerId` (string, opcional) |
 
-### 2.2 Juego `combat` — implementado en Scala
+### 2.2 Juego `combat` — disparos y eliminaciones, implementado en Scala
 
 | `type` | `playerId` | `data` |
 |---|---|---|
@@ -78,7 +83,7 @@ Los campos opcionales pueden omitirse o ir en `null`.
 
 > En `PLAYER_ELIMINATED` el `playerId` es quien elimina y la víctima va en `data.victimId`.
 
-### 2.3 Juego `racing` — carrera por vueltas (sin analizador propio todavía)
+### 2.3 Juego `racing` — carrera por vueltas, implementado en Scala
 
 Diseñado para ser lo más sencillo de implementar como juego real: el juego solo avisa cuando un piloto completa una vuelta y cuando choca. Las posiciones, la mejor vuelta y las remontadas **no** las manda el juego: Scala las calcula a partir de los tiempos.
 
@@ -94,7 +99,7 @@ Ejemplo: `samples/racing_match.json` (vale choca en la vuelta 1, queda última y
 
 Estadísticas y reglas: ver sección 5.2.
 
-### 2.4 Juego `chase` — La Buena vs La Mala (sin analizador propio todavía)
+### 2.4 Juego `chase` — La Buena vs La Mala, implementado en Scala
 
 Basado en el proyecto Java + Prolog de Jean. Tablero de `rows` × `cols` con obstáculos; La Buena (el jugador) debe alcanzar a La Mala moviéndose arriba, abajo, izquierda o derecha. El juego calcula la ruta más corta (A\*) y el jugador la recorre; si choca con un obstáculo pierde una vida (3 en total). Coordenadas `(row, col)` desde 0. Un solo jugador por partida.
 
@@ -297,18 +302,137 @@ Patrones: ninguno (no fue perfecta y le quedaron 2 vidas).
 
 ---
 
-## 6. Ejemplos de uso
+
+## 6. API del servicio de ingestión (Go)
+
+Es la puerta de entrada para cualquier fuente de eventos (en este proyecto, el simulador).
+
+### 6.1 `POST /events`
+
+Acepta tres formas de cuerpo, para que sea fácil de usar desde cualquier fuente:
+
+```jsonc
+{ "eventId": "c1-001", ... }                    // un solo evento
+[ { ...evento... }, { ...evento... } ]          // un arreglo de eventos
+{ "events": [ { ...evento... }, ... ] }         // el mismo formato que recibe Scala
+```
+
+Los eventos pueden llegar en cualquier orden, mezclados entre partidas y juegos, y en varias peticiones.
+Cada evento se valida **por separado**: uno inválido se rechaza y los demás siguen (al contrario de Scala, que rechaza la petición completa).
+
+**Respuesta 202** (recibido; el análisis ocurre después):
+```json
+{
+  "accepted": 2,
+  "rejected": 1,
+  "errors": [
+    { "index": 1, "eventId": "bad-1", "problems": ["timestamp \"2026-10-14T10:00:00-06:00\" debe estar en UTC y terminar en Z"] }
+  ]
+}
+```
+
+**Respuesta 400**: el cuerpo está vacío o no es JSON válido (`{"error": "..."}`). En ese caso no se puede separar en eventos, así que no se acepta ninguno ni se anota en `/rejected`. **413**: cuerpo mayor a 10 MB.
+
+### 6.2 Validación de cada evento (al recibirlo)
+
+Un evento se rechaza si:
+
+- falta `eventId`, `timestamp`, `gameId`, `matchId` o `type`;
+- `timestamp` no es ISO-8601 o no termina en `Z` (UTC);
+- `gameId` no va en minúsculas (`^[a-z][a-z0-9_-]*$`);
+- `type` no va en `MAYUSCULAS_CON_GUION_BAJO` (`^[A-Z][A-Z0-9_]*$`);
+- `playerId` viene pero está vacío;
+- `data` viene y no es un objeto JSON (`null` sí se acepta);
+- el JSON está roto o un campo tiene un tipo incorrecto.
+
+Se informan **todos** los problemas de un evento, no solo el primero.
+
+### 6.3 Reglas con estado (al agrupar)
+
+Estas reglas necesitan recordar eventos anteriores. El evento se acepta por HTTP y lo descarta el pipeline:
+
+| Caso | Qué pasa |
+|---|---|
+| `eventId` ya recibido en la misma partida | Se descarta como **duplicado** |
+| Evento nuevo para una partida ya enviada a Scala | Se descarta como **tardío** |
+| Evento con un `gameId` distinto al de su partida | Se descarta (**juego equivocado**) |
+
+Todos los descartes quedan en `GET /rejected` con el motivo.
+
+### 6.4 Cuándo una partida está lista
+
+Go envía la partida completa a Scala (`POST /analyze`, sección 3.1) cuando ocurre lo primero de:
+
+1. Llega su `MATCH_FINISHED`.
+2. Pasan `IDLE_TIMEOUT` (30 s por defecto) sin eventos nuevos de esa partida (partidas abandonadas o cortadas).
+3. El servicio se apaga: las partidas abiertas se envían antes de terminar.
+
+Si Scala no responde o responde 5xx, Go **reintenta** hasta 6 veces esperando 1 s, 2 s, 4 s, 8 s y 16 s. Un 4xx no se reintenta (daría el mismo error). Si la partida no logra enviarse, deja de contar como cerrada: si la fuente reenvía sus eventos, se aceptan y se vuelve a intentar.
+
+### 6.5 `GET /status`
+
+Contadores desde que arrancó el servicio. Ejemplo real tras `simulator -seed 42 -delay 0ms` (14 partidas y los casos especiales):
+
+```json
+{
+  "rejected": 10,
+  "pipeline": {
+    "received": 492, "duplicates": 3, "late": 1, "gameMismatch": 1,
+    "openMatches": 0, "batchesSent": 14, "batchesFailed": 0, "reopened": 0, "eventsSent": 487
+  }
+}
+```
+
+- `rejected`: total de rechazados (al recibir + al agrupar).
+- `received`: eventos válidos que entraron al pipeline.
+- `openMatches`: partidas que siguen esperando eventos.
+- `batchesSent` / `batchesFailed`: partidas entregadas a Scala / que no se pudieron entregar.
+- `eventsSent`: eventos entregados a Scala (`received` menos duplicados, tardíos y de otro juego, cuando no quedan partidas abiertas).
+
+### 6.6 `GET /rejected`
+
+Los últimos 500 eventos rechazados, con el motivo y el JSON original:
+
+```json
+{
+  "total": 10,
+  "recent": [
+    {
+      "receivedAt": "2026-10-17T18:00:03Z",
+      "eventId": "bad-3",
+      "matchId": "x",
+      "problems": ["gameId \"Combat\" debe ir en minúsculas (ej. combat)"],
+      "raw": { "eventId": "bad-3", "timestamp": "2026-10-14T10:00:00Z", "gameId": "Combat", "matchId": "x", "type": "SHOT_FIRED" }
+    }
+  ]
+}
+```
+
+### 6.7 `GET /health`
+
+`200 {"status":"ok"}`.
+
+### 6.8 Ejemplos
 
 ```bash
-curl -X POST http://localhost:8081/analyze \
+# Mandar una partida completa al ingest (lo normal)
+curl -X POST http://localhost:8080/events \
      -H 'Content-Type: application/json' \
      --data @samples/combat_match.json
 
+# Mandar un solo evento
+curl -X POST http://localhost:8080/events -H 'Content-Type: application/json' \
+     -d '{"eventId":"x-1","timestamp":"2026-10-17T10:00:00Z","gameId":"combat","matchId":"x","type":"MATCH_STARTED"}'
+
+curl http://localhost:8080/status
+curl http://localhost:8080/rejected
+
+# Consultar resultados en Scala
 curl http://localhost:8081/results/match/combat-001
 curl http://localhost:8081/results/players
 ```
 
-### Sugerencia de struct en Go (para Andrés)
+### 6.9 El evento en Go
 
 ```go
 type Event struct {
@@ -321,28 +445,32 @@ type Event struct {
     Type        string          `json:"type"`
     Action      *string         `json:"action,omitempty"`
     Data        json.RawMessage `json:"data,omitempty"`
-}
-
-type AnalyzeRequest struct {
-    Events []Event `json:"events"`
+    Time        time.Time       `json:"-"` // timestamp ya convertido, solo para uso interno
 }
 ```
 
-Usar `json.RawMessage` para `data` mantiene a Go genérico: no necesita conocer los campos de cada juego.
+`data` se guarda como `json.RawMessage`: Go la reenvía tal cual sin entenderla, por eso el ingest no conoce ningún juego en particular.
 
 ---
 
-## 7. Docker Compose (previsto)
+## 7. Docker Compose
 
-- `analyzer` (Scala): puerto 8081, healthcheck `GET /health`.
-- `ingest` (Go): `depends_on: analyzer (service_healthy)`, variable `ANALYZER_URL=http://analyzer:8081`.
+Archivo `docker-compose.yml` en la raíz. Dentro de la red de Compose cada servicio se encuentra por su nombre.
+
+| Servicio | Imagen | Puerto | Variables | Arranca cuando |
+|---|---|---|---|---|
+| `analyzer` | `analytics-scala/Dockerfile` | 8081 | `PORT` | de inmediato; healthcheck `GET /health` |
+| `ingest` | `ingest-go/Dockerfile` | 8080 | `ANALYZER_URL=http://analyzer:8081`, `IDLE_TIMEOUT` | `analyzer` está *healthy*; healthcheck `GET /health` |
+| `dashboard` | la misma imagen de Go, programa `/app/dashboard` | 8090 | `INGEST_URL`, `ANALYZER_URL` | `ingest` está *healthy* |
+| `simulator` | la misma imagen de Go, programa `/app/simulator` | – | `INGEST_URL=http://ingest:8080` | solo a pedido (perfil `sim`): `docker compose run --rm simulator` |
 
 ---
 
-## 8. Decisiones pendientes
+## 8. Decisiones tomadas
 
-1. ~~¿Segundo juego?~~ Propuesta: `racing` (2.3) y `chase` (2.4). Pendiente: ¿cuáles tendrán analizador propio en Scala?
-2. ~~¿Cómo recibe Go los eventos?~~ API REST propia: `POST http://ingest:8080/events` (un evento, un arreglo o `{"events":[...]}`).
-3. ~~¿Cuándo está "lista" una partida?~~ Al recibir `MATCH_FINISHED`; como respaldo, tras `IDLE_TIMEOUT` (30 s) sin eventos.
-4. ¿Los resultados persisten en disco o basta memoria? (Hoy: memoria; se pierden al reiniciar Scala.)
-5. ~~Nombre y puerto del servicio Go.~~ `ingest`, puerto 8080.
+1. **Juegos:** `combat`, `racing` y `chase`, cada uno con analizador propio en Scala. Cualquier otro `gameId` se analiza con `GenericAnalyzer` (sección 2.5).
+2. **Entrada de eventos:** API REST propia del ingest, `POST /events` (sección 6.1).
+3. **Comunicación Go → Scala:** HTTP, una petición `POST /analyze` por partida completa.
+4. **Partida lista:** al recibir `MATCH_FINISHED`; como respaldo, tras `IDLE_TIMEOUT` sin eventos; y al apagar el servicio (sección 6.4).
+5. **Persistencia:** los resultados viven en memoria en Scala y se pierden al reiniciar. Es suficiente para el alcance del proyecto (la fuente es un simulador que se puede repetir con la misma semilla). Agregar una base de datos solo cambiaría `ResultStore` en Scala.
+6. **Nombres y puertos:** `ingest` 8080, `analyzer` 8081, `dashboard` 8090.

@@ -1,0 +1,6 @@
+# Fin de línea LF en todos los archivos de texto, también al clonar en Windows.
+# Sin esto, Git en Windows puede convertir a CRLF y romper los comandos de los
+# Dockerfiles y los scripts que corren dentro de los contenedores (Linux).
+* text=auto eol=lf
+*.png binary
+*.jar binary

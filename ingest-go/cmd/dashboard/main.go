@@ -1,20 +1,18 @@
 // Panel de GameStats: una página web que muestra el sistema funcionando en vivo
 // y permite lanzar el simulador con un botón.
 //
-// El panel no analiza nada. Hace tres cosas:
+// El panel no analiza nada. Hace tres cosas: sirve la página (web/index.html,
+// incluida dentro del binario con go:embed), reenvía las consultas de la página
+// a ingest y a Scala, y lanza o detiene el simulador como un proceso aparte.
 //
-//   - Sirve la página (web/index.html, incluida dentro del binario con go:embed).
+//	página ──► /api/ingest/...   ──► ingest    :8080 (GET /status, /rejected)
+//	página ──► /api/analyzer/... ──► analytics :8081 (GET /results/...)
+//	página ──► /api/sim/...      ──► proceso del simulador ──POST /events──► ingest
 //
-//   - Reenvía las consultas de la página a ingest (Go) y a analytics (Scala).
-//     Así el navegador habla con un solo origen y no hacen falta permisos CORS.
+// Reenviar las consultas hace que el navegador hable con un solo origen, así que
+// no hacen falta permisos CORS en Go ni en Scala.
 //
-//   - Lanza y detiene el simulador como un proceso aparte, y guarda su salida.
-//
-//     página ──► /api/ingest/...   ──► ingest   :8080  (GET /status, /rejected, /health)
-//     ──► /api/analyzer/... ──► analytics :8081 (GET /results/..., /health)
-//     ──► /api/sim/...      ──► proceso del simulador ──POST /events──► ingest
-//
-//     go run ./cmd/dashboard          # y abrir http://localhost:8090
+//	go run ./cmd/dashboard   # y abrir http://localhost:8090
 package main
 
 import (
