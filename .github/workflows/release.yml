@@ -1,0 +1,67 @@
+# Entrega (CD): cuando se publica un release en GitHub (por ejemplo v1.0),
+# construye las dos imágenes Docker y las publica en el registro de GitHub
+# (GitHub Container Registry, ghcr.io) con la versión del release como etiqueta.
+#
+# No hace falta configurar nada: GitHub le da al workflow un token temporal
+# (GITHUB_TOKEN) con permiso para publicar paquetes en este repositorio.
+name: Release
+on:
+  release:
+    types: [published]    # al publicar un release (no al guardarlo como borrador)
+  workflow_dispatch:      # también se puede lanzar a mano desde la pestaña Actions
+
+permissions:
+  contents: read
+  packages: write         # permiso para subir imágenes a ghcr.io
+
+jobs:
+  images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Calcular nombres de las imágenes
+        # ghcr.io exige minúsculas. La versión es el tag del release (v1.0);
+        # si se lanza a mano, el nombre de la rama.
+        run: |
+          echo "REGISTRY=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+          echo "VERSION=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+
+      - name: Iniciar sesión en ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Imagen de Go (ingest, simulador y panel)
+        uses: docker/build-push-action@v6
+        with:
+          context: ingest-go
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/gamestats-go:${{ env.VERSION }}
+            ${{ env.REGISTRY }}/gamestats-go:latest
+          # Liga la imagen a este repositorio: aparece en "Packages" del repo.
+          labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+
+      - name: Imagen de Scala (analyzer)
+        # El Dockerfile de Scala corre "sbt test": si una prueba falla, no se publica.
+        uses: docker/build-push-action@v6
+        with:
+          context: analytics-scala
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/gamestats-analyzer:${{ env.VERSION }}
+            ${{ env.REGISTRY }}/gamestats-analyzer:latest
+          labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+
+      - name: Resumen
+        run: |
+          {
+            echo "### Imágenes publicadas"
+            echo "- \`${REGISTRY}/gamestats-go:${VERSION}\`"
+            echo "- \`${REGISTRY}/gamestats-analyzer:${VERSION}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

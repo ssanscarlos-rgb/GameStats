@@ -316,10 +316,12 @@ con reintentos, el simulador y el panel.
 | Workflow | Cuándo corre | Qué hace |
 |---|---|---|
 | `go-ci.yml` (**Go CI**) | cambios en `ingest-go/` o `samples/` | `gofmt`, `go vet`, pruebas con `-race`, compila los tres programas y construye la imagen Docker |
-| `scala-ci.yml` (**Scala CI**) | cambios en `analytics-scala/` | `sbt test`, empaqueta el jar y construye la imagen Docker |
+| `scala-ci.yml` (**Scala CI**) | cambios en `analytics-scala/` o `samples/` | `sbt test`, empaqueta el jar y construye la imagen Docker |
 | `system-ci.yml` (**Sistema completo**) | cada push a `main` y cada pull request | levanta todo con `docker compose up --build --wait`, corre el simulador con semilla fija, comprueba que las 14 partidas recorrieron simulador → Go → Scala, que los tres analizadores y sus patrones funcionaron, que Go rechazó los casos especiales y que el panel responde; al final apaga los contenedores |
+| `release.yml` (**Release**) | al publicar un release en GitHub (ej. `v1.0`) | construye las dos imágenes y las publica en el registro de GitHub (`ghcr.io`) con la versión como etiqueta; el build de Scala corre las pruebas, así que una versión con pruebas rotas no se publica |
 
-Los resultados se ven en la pestaña **Actions** del repositorio.
+Los resultados se ven en la pestaña **Actions** del repositorio. El flujo completo es:
+CI en cada push → `main` en verde → release `vX.Y` → imágenes versionadas en **Packages**.
 
 ---
 
@@ -338,8 +340,26 @@ docker compose up -d --build      # construye la versión nueva y reemplaza los 
 - Los healthchecks hacen que `ingest` espere a que Scala responda y que el
   panel espere al ingest.
 
-Para desplegar una versión anterior: `git checkout <commit>` y el mismo
+Para desplegar una versión anterior: `git checkout v1.0` (o cualquier commit) y el mismo
 `docker compose up -d --build`.
+
+### Desplegar desde las imágenes publicadas (sin compilar)
+
+Cada release publica sus imágenes en `ghcr.io` (sección **Packages** del repositorio).
+Para desplegar esa versión sin compilar nada, desde la carpeta del repositorio:
+
+```bash
+V=v1.0
+docker pull ghcr.io/ssanscarlos-rgb/gamestats-go:$V
+docker pull ghcr.io/ssanscarlos-rgb/gamestats-analyzer:$V
+docker tag ghcr.io/ssanscarlos-rgb/gamestats-go:$V gamestats-go
+docker tag ghcr.io/ssanscarlos-rgb/gamestats-analyzer:$V gamestats-analyzer
+docker compose up -d              # sin --build: usa las imágenes descargadas
+```
+
+Las imágenes son para `linux/amd64`. En una Mac con chip Apple, Docker Desktop
+las corre con emulación (funciona, pero arranca más lento); ahí conviene el
+camino normal con `--build`.
 
 La misma secuencia es la que ejecuta el workflow **Sistema completo** en una
 máquina limpia de GitHub en cada push a `main`: si ese workflow está en verde,
