@@ -34,7 +34,16 @@ Juegos soportados: **combat** (disparos), **racing** (carrera por vueltas) y
 
 No hace falta tener Go, Scala, Java ni sbt instalados: todo se compila dentro de Docker.
 
-### Tres comandos
+Hay dos formas de levantarlo. Las dos usan el mismo `docker-compose.yml` y dan el mismo sistema.
+
+| | Opción A: construir desde el código | Opción B: imágenes publicadas del release |
+|---|---|---|
+| Qué hace | compila Go y Scala dentro de Docker | descarga las imágenes ya construidas por el pipeline (sección **Packages** del repo) |
+| Primera vez | varios minutos (Scala descarga sbt y librerías y corre pruebas) | lo que tarde la descarga |
+| Plataforma | cualquiera (Intel, AMD o Apple Silicon) | imágenes `linux/amd64`; en Mac con chip Apple corren emuladas |
+| Recomendada para | evaluar el proyecto | ver el resultado del CD sin compilar |
+
+### Opción A: construir desde el código (recomendada)
 
 ```bash
 git clone https://github.com/ssanscarlos-rgb/GameStats.git
@@ -42,18 +51,39 @@ cd GameStats
 docker compose up -d --build
 ```
 
-La **primera** construcción tarda varios minutos (sobre todo la de Scala, que
-descarga sbt y las librerías y corre las pruebas). Las siguientes son mucho más rápidas.
+### Opción B: usar las imágenes publicadas (release v1.0)
 
-Cuando termina, comprobar que los tres servicios están arriba:
+El repositorio hace falta igual, porque trae el `docker-compose.yml`. Se clona en la
+versión del release para que el compose coincida con las imágenes:
+
+```bash
+git clone --branch v1.0 https://github.com/ssanscarlos-rgb/GameStats.git
+cd GameStats
+docker pull --platform linux/amd64 ghcr.io/ssanscarlos-rgb/gamestats-go:v1.0
+docker pull --platform linux/amd64 ghcr.io/ssanscarlos-rgb/gamestats-analyzer:v1.0
+docker tag ghcr.io/ssanscarlos-rgb/gamestats-go:v1.0 gamestats-go
+docker tag ghcr.io/ssanscarlos-rgb/gamestats-analyzer:v1.0 gamestats-analyzer
+docker compose up -d
+```
+
+- `--platform linux/amd64` es necesario en Mac con chip Apple (sin eso Docker busca
+  una versión `arm64`, que no existe, y el `pull` falla); en Intel/AMD no cambia nada.
+- `docker tag` les pone a las imágenes descargadas los nombres que busca el compose.
+- `docker compose up -d` va **sin** `--build`: así usa las imágenes descargadas en vez de compilar.
+- En Mac con chip Apple aparece un aviso de que la plataforma no coincide: es normal, Docker las emula.
+
+### Comprobar que está arriba
 
 ```bash
 docker compose ps
 ```
 
-`analyzer` e `ingest` deben decir `healthy` y `dashboard` debe decir `running`/`Up`.
-
+`analyzer` e `ingest` deben decir `healthy` y `dashboard` debe decir `Up`.
 Luego abrir **http://localhost:8090** en el navegador.
+
+Nota para macOS: si se copian los comandos con un comentario al final (`# ...`),
+la terminal (zsh) toma el `#` como un argumento más. En este README los bloques
+de comandos no llevan comentarios por eso.
 
 ### Apagar
 
@@ -99,12 +129,20 @@ El modo **Continuo** juega partidas nuevas sin parar durante el tiempo elegido
 ### Lo mismo sin el panel
 
 ```bash
-docker compose run --rm simulator -seed 42      # una tanda; misma semilla = mismas partidas
-curl http://localhost:8080/status               # contadores del ingest (Go)
-curl http://localhost:8080/rejected             # eventos rechazados y por qué
-curl http://localhost:8081/results/matches      # análisis de cada partida (Scala)
-curl http://localhost:8081/results/players      # estadísticas por jugador (Scala)
+docker compose run --rm simulator -seed 42
+curl http://localhost:8080/status
+curl http://localhost:8080/rejected
+curl http://localhost:8081/results/matches
+curl http://localhost:8081/results/players
 ```
+
+| Comando | Qué muestra |
+|---|---|
+| `docker compose run --rm simulator -seed 42` | corre una tanda; la misma semilla genera las mismas partidas |
+| `/status` (8080) | contadores del ingest (Go) |
+| `/rejected` (8080) | eventos rechazados y por qué |
+| `/results/matches` (8081) | análisis de cada partida (Scala) |
+| `/results/players` (8081) | estadísticas por jugador (Scala) |
 
 En Windows PowerShell se usa `curl.exe` en lugar de `curl`.
 
@@ -146,8 +184,8 @@ Los resultados esperados de los tres ejemplos de `samples/` están escritos en
 | Construcción reproducible | `ingest-go/go.mod` (Go 1.24, sin dependencias externas); `analytics-scala/build.sbt` con versiones fijas; Dockerfiles multi-etapa con imágenes base fijadas |
 | Contenerización con Docker | `ingest-go/Dockerfile` (ingest, simulador y panel en una imagen), `analytics-scala/Dockerfile` |
 | Ejecución integrada | `docker-compose.yml`: red interna, healthchecks, orden de arranque (`depends_on: service_healthy`) |
-| Pipeline CI/CD | `.github/workflows/` (ver sección 7 de este README) |
-| Deployment | Sección 8 de este README |
+| Pipeline CI/CD | `.github/workflows/` (ver sección 7): CI en cada push y `release.yml`, que publica las imágenes versionadas en **Packages** (`ghcr.io`) en cada release |
+| Deployment | Sección 8: una máquina con Docker, desde el código o desde las imágenes publicadas |
 
 ### Entregables (sección 11)
 
@@ -204,21 +242,29 @@ GameStats/
 
 ## 5. Ejecutar sin Docker (desarrollo)
 
-Requiere **Go 1.24+**, **JDK 17** y **sbt 1.10+**. Cada servicio en su propia terminal:
+Requiere **Go 1.24+**, **JDK 17** y **sbt 1.10+**. Cada servicio en su propia
+terminal, desde la raíz del repositorio y en este orden:
 
-```bash
-# 1) Scala (análisis), queda en http://localhost:8081
-cd analytics-scala
-sbt run
+1. Scala (análisis), queda en http://localhost:8081:
 
-# 2) Go: ingest, queda en http://localhost:8080
-cd ingest-go
-go run ./cmd/ingest
+   ```bash
+   cd analytics-scala
+   sbt run
+   ```
 
-# 3) Go: panel, queda en http://localhost:8090
-cd ingest-go
-go run ./cmd/dashboard
-```
+2. Go: ingest, queda en http://localhost:8080:
+
+   ```bash
+   cd ingest-go
+   go run ./cmd/ingest
+   ```
+
+3. Go: panel, queda en http://localhost:8090:
+
+   ```bash
+   cd ingest-go
+   go run ./cmd/dashboard
+   ```
 
 Los comandos de Go se corren **dentro de `ingest-go/`** (ahí está `go.mod`).
 Desde el panel se lanza el simulador; si no encuentra el binario, lo compila
@@ -226,11 +272,15 @@ solo con `go build`. También se puede correr a mano:
 
 ```bash
 cd ingest-go
-go run ./cmd/simulator                        # una tanda: 3 combat, 3 chase, 2 racing + casos especiales
-go run ./cmd/simulator -combat 5 -delay 0ms   # más partidas, sin pausas
-go run ./cmd/simulator -duration 5m           # modo continuo durante 5 minutos
-go run ./cmd/simulator -out ../samples/sim    # escribir las partidas como JSON en vez de enviarlas
+go run ./cmd/simulator
 ```
+
+| Comando (dentro de `ingest-go/`) | Qué hace |
+|---|---|
+| `go run ./cmd/simulator` | una tanda: 3 combat, 3 chase, 2 racing + casos especiales |
+| `go run ./cmd/simulator -combat 5 -delay 0ms` | más partidas, sin pausas |
+| `go run ./cmd/simulator -duration 5m` | modo continuo durante 5 minutos |
+| `go run ./cmd/simulator -out ../samples/sim` | escribe las partidas como JSON en vez de enviarlas |
 
 Opciones del simulador:
 
@@ -300,9 +350,18 @@ y `POST /api/sim/stop` controlan el simulador.
 
 ### Pruebas locales
 
+Go, con el detector de condiciones de carrera (desde la raíz del repositorio):
+
 ```bash
-cd ingest-go && go test -race ./...     # Go, con el detector de condiciones de carrera
-cd analytics-scala && sbt test          # Scala (munit)
+cd ingest-go
+go test -race ./...
+```
+
+Scala, con munit (desde la raíz del repositorio):
+
+```bash
+cd analytics-scala
+sbt test
 ```
 
 Las pruebas de Scala usan partidas armadas en el propio código y, para racing
@@ -328,42 +387,40 @@ CI en cada push → `main` en verde → release `vX.Y` → imágenes versionadas
 ## 8. Deployment
 
 El entorno de deployment definido por el equipo es **una máquina con Docker**
-(la de cualquier integrante o la del evaluador). Desplegar una versión es:
+(la de cualquier integrante o la del evaluador). Hay dos formas de desplegar una
+versión, las mismas de la sección 1:
 
-```bash
-git pull                          # o git clone la primera vez
-docker compose up -d --build      # construye la versión nueva y reemplaza los contenedores
-```
+| | Desde el código | Desde las imágenes publicadas |
+|---|---|---|
+| Primera vez | `git clone` + `docker compose up -d --build` | `git clone --branch vX.Y` + `docker pull` + `docker tag` + `docker compose up -d` |
+| Actualizar | `git pull` + `docker compose up -d --build` | lo mismo con la etiqueta nueva (`v1.1`...) |
+| Volver a una versión anterior | `git checkout v1.0` + `docker compose up -d --build` | `docker pull ...:v1.0` + `docker tag` + `docker compose up -d` |
+
+Comandos exactos: sección 1 (opciones A y B).
+
+Qué mantiene el sistema arriba:
 
 - `-d` deja los servicios corriendo en segundo plano.
 - `restart: unless-stopped` los vuelve a levantar si se caen o si se reinicia Docker.
 - Los healthchecks hacen que `ingest` espere a que Scala responda y que el
   panel espere al ingest.
+- Al actualizar, Compose solo recrea los contenedores cuya imagen cambió.
 
-Para desplegar una versión anterior: `git checkout v1.0` (o cualquier commit) y el mismo
-`docker compose up -d --build`.
+### Cómo se conecta con CI/CD
 
-### Desplegar desde las imágenes publicadas (sin compilar)
-
-Cada release publica sus imágenes en `ghcr.io` (sección **Packages** del repositorio).
-Para desplegar esa versión sin compilar nada, desde la carpeta del repositorio:
-
-```bash
-V=v1.0
-docker pull ghcr.io/ssanscarlos-rgb/gamestats-go:$V
-docker pull ghcr.io/ssanscarlos-rgb/gamestats-analyzer:$V
-docker tag ghcr.io/ssanscarlos-rgb/gamestats-go:$V gamestats-go
-docker tag ghcr.io/ssanscarlos-rgb/gamestats-analyzer:$V gamestats-analyzer
-docker compose up -d              # sin --build: usa las imágenes descargadas
+```
+push a main ──► Go CI, Scala CI, Sistema completo (en verde)
+            ──► release vX.Y ──► release.yml publica gamestats-go:vX.Y y gamestats-analyzer:vX.Y en ghcr.io
+            ──► despliegue con cualquiera de las dos formas
 ```
 
-Las imágenes son para `linux/amd64`. En una Mac con chip Apple, Docker Desktop
-las corre con emulación (funciona, pero arranca más lento); ahí conviene el
-camino normal con `--build`.
+El workflow **Sistema completo** ejecuta el mismo `docker compose up --build` en una
+máquina limpia de GitHub en cada push a `main`: si está en verde, esa versión se puede
+desplegar. Un release se crea solo sobre un commit en verde, y sus imágenes quedan
+versionadas en **Packages**.
 
-La misma secuencia es la que ejecuta el workflow **Sistema completo** en una
-máquina limpia de GitHub en cada push a `main`: si ese workflow está en verde,
-esa versión se despliega con estos comandos.
+Para apagar: `docker compose stop` (se reanuda con `docker compose start`) o
+`docker compose down` (borra los contenedores; las imágenes se quedan).
 
 ---
 
@@ -371,6 +428,8 @@ esa versión se despliega con estos comandos.
 
 | Síntoma | Solución |
 |---|---|
+| `no matching manifest for linux/arm64/v8` al hacer `docker pull` | Mac con chip Apple: las imágenes publicadas son `linux/amd64`. Agregar `--platform linux/amd64` al `docker pull` (opción B), o usar la opción A |
+| `no such service: #` o `grep: #: No such file` | La terminal de macOS (zsh) no toma `#` como comentario al pegar. Copiar los comandos sin comentarios, o correr antes `setopt interactivecomments` |
 | `port is already allocated` / `address already in use` | Algo usa 8080, 8081 u 8090 (por ejemplo, una ejecución con `go run` o `sbt run`). Cerrarlo. En macOS/Linux: `lsof -ti :8080,8081,8090 \| xargs kill` |
 | `docker compose` no existe | Docker viejo con Compose v1: usar `docker-compose` (con guion) o actualizar Docker Desktop |
 | La primera construcción tarda mucho | Normal: Scala descarga sbt, librerías y corre pruebas. Ver avance con `docker compose up --build` (sin `-d`) |
