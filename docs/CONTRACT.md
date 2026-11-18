@@ -99,19 +99,19 @@ Ejemplo: `samples/racing_match.json` (vale choca en la vuelta 1, queda última y
 
 Estadísticas y reglas: ver sección 5.2.
 
-### 2.4 Juego `chase` — La Buena vs La Mala, implementado en Scala
+### 2.4 Juego `chase` — carrera hacia una salida, implementado en Scala
 
-Basado en el proyecto Java + Prolog de Jean. Tablero de `rows` × `cols` con obstáculos; La Buena (el jugador) debe alcanzar a La Mala moviéndose arriba, abajo, izquierda o derecha. El juego calcula la ruta más corta (A\*) y el jugador la recorre; si choca con un obstáculo pierde una vida (3 en total). Coordenadas `(row, col)` desde 0. Un solo jugador por partida.
+Basado en el proyecto Java + Prolog de Jean. Carrera en tiempo real por un mapa de `rows` × `cols` con obstáculos hacia una **salida** ubicada en un borde; todos los jugadores empiezan en la misma celda. Pueden participar una persona y una IA, o dos personas. El juego calcula la ruta más corta (A\*) y cada jugador la recorre por su cuenta; si choca con un obstáculo pierde una vida (3 en total). Coordenadas `(row, col)` desde 0. **Uno o dos jugadores por partida**; cada uno emite sus propios `ROUTE_COMPUTED`, `PLAYER_MOVED` y `TARGET_REACHED`.
 
 | `type` | `playerId` | `data` |
 |---|---|---|
-| `MATCH_STARTED` | – | `rows`, `cols`, `obstaclePct`, `lives` (int) |
+| `MATCH_STARTED` | – | `rows`, `cols`, `obstaclePct`, `lives` (int); el juego puede agregar `mode`, `exit`, `difficulty`, etc. (el analizador los ignora) |
 | `PLAYER_JOINED` | jugador | – |
-| `ROUTE_COMPUTED` | jugador | `found` (bool), `start` y `goal` (`{row, col}`), `optimalSteps` y `routeTurns` (int, solo si `found`) |
+| `ROUTE_COMPUTED` | jugador | `found` (bool), `start` y `goal` (`{row, col}`, la salida), `optimalSteps` y `routeTurns` (int, solo si `found`) |
 | `PLAYER_MOVED` | jugador | `row`, `col` (int, celda de llegada), `direction` (`arriba`/`abajo`/`izquierda`/`derecha`), `turn` (bool, cambió de dirección) |
 | `OBSTACLE_HIT` | jugador | `row`, `col` (celda del obstáculo), `livesLeft` (int) |
 | `TARGET_REACHED` | jugador | `steps`, `turns` (int) |
-| `MATCH_FINISHED` | – | `winnerId` solo si alcanzó a La Mala |
+| `MATCH_FINISHED` | – | `winnerId` solo si alguien llegó a la salida |
 
 Ejemplo: `samples/chase_match.json`.
 
