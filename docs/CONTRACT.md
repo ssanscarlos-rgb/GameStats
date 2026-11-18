@@ -158,7 +158,10 @@ Un análisis de partida. `404` con `{"error":"match not found"}` si no existe.
 ### 3.4 `GET /results/players`
 Agregado por jugador y juego, sumando todas las partidas (esquema en 4.2).
 
-### 3.5 `GET /health`
+### 3.5 `GET /results/games`
+Resumen por juego y general (esquema en 4.3). Solo cuenta partidas ya analizadas (las que Go entregó); las partidas aún abiertas se ven en el `/status` de Go.
+
+### 3.6 `GET /health`
 `200 {"status":"ok"}`. Para healthchecks de Docker/Compose y para que Go espere a Scala antes de enviar.
 
 ---
@@ -217,6 +220,33 @@ Resultado real esperado para `samples/combat_match.json`:
   "patternCounts": { "COMEBACK": 1 }
 }
 ```
+
+### 4.3 Resumen por juego y general (`ResultsOverview`)
+
+```json
+{
+  "games": [
+    {
+      "gameId": "chase",
+      "matchesAnalyzed": 2, "matchesWithWinner": 2, "playersCount": 2,
+      "totalDurationSeconds": 60, "avgDurationSeconds": 30.0,
+      "eventCounts": { "MATCH_STARTED": 2, "PLAYER_MOVED": 32, "MATCH_FINISHED": 2 },
+      "patternCounts": { "PERFECT_RUN": 2 },
+      "counters": { "routeFound": 4, "reached": 2 },
+      "derived":  { "successRate": 0.5, "efficiency": 1.0 }
+    }
+  ],
+  "total": {
+    "gamesCount": 2, "matchesAnalyzed": 3, "matchesWithWinner": 3, "playersCount": 3,
+    "totalDurationSeconds": 120, "avgDurationSeconds": 40.0,
+    "eventCounts": { "MATCH_STARTED": 3 }, "patternCounts": { "PERFECT_RUN": 2 }
+  }
+}
+```
+
+- `games` va ordenado por `gameId`; `[]` si todavía no hay partidas.
+- `counters` de un juego suma los de todos sus jugadores; `derived` se recalcula con el analizador del juego (igual que en 4.2).
+- `playersCount` cuenta cada `playerId` una sola vez (los bots y la CPU también cuentan).
 
 ---
 
