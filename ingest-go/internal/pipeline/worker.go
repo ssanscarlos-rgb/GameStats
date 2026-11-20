@@ -19,7 +19,7 @@ type matchState struct {
 // runWorker es un trabajador. Vive mientras su canal esté abierto y atiende
 // tres cosas con select: eventos nuevos, el "tic" del reloj para revisar
 // inactividad, y avisos de partidas cuyo envío a Scala falló.
-func (p *Pipeline) runWorker(in <-chan event.Event, forget <-chan string) {
+func (p *Pipeline) runWorker(in <-chan event.Event, forget <-chan forgetMsg) {
 	defer p.workersWG.Done()
 
 	open := map[string]*matchState{}       // partidas abiertas de ESTE trabajador
@@ -39,12 +39,15 @@ func (p *Pipeline) runWorker(in <-chan event.Event, forget <-chan string) {
 			}
 			p.handle(e, open, closed)
 
-		case id := <-forget:
+		case f := <-forget:
 			// El envío falló: la partida deja de contar como cerrada. Si sus
 			// eventos se reenvían, se abren en una cajita nueva y se reintenta.
-			if _, ok := closed[id]; ok {
-				delete(closed, id)
+			// Como esa cajita volverá a contarse como abierta, se descuenta
+			// ahora para que una misma partida no cuente dos veces en "opened".
+			if _, ok := closed[f.matchID]; ok {
+				delete(closed, f.matchID)
 				p.reopened.Add(1)
+				p.games.add(f.gameID, -1, 0)
 			}
 
 		case now := <-ticker.C:
@@ -78,6 +81,7 @@ func (p *Pipeline) handle(e event.Event, open map[string]*matchState, closed map
 		m = &matchState{gameID: e.GameID, seen: map[string]bool{}, players: map[string]bool{}}
 		open[e.MatchID] = m
 		p.open.Add(1)
+		p.games.add(e.GameID, 1, 0) // la instancia cuenta apenas llega su primer evento
 	}
 
 	if e.GameID != m.gameID {

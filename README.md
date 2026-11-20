@@ -322,7 +322,7 @@ Con Compose, `IDLE_TIMEOUT` se puede cambiar al arrancar:
 | Método y ruta | Qué hace |
 |---|---|
 | `POST /events` | Recibe un evento, un arreglo de eventos o `{"events":[...]}`. Valida cada uno por separado y responde `202` con `{"accepted","rejected","errors"}` |
-| `GET /status` | Contadores: recibidos, rechazados, duplicados, tardíos, partidas abiertas, enviadas, fallidas |
+| `GET /status` | Contadores: recibidos, rechazados, duplicados, tardíos, partidas abiertas, enviadas, fallidas, y `pipeline.games` con las partidas abiertas y entregadas por juego (v1.1) |
 | `GET /rejected` | Últimos eventos rechazados con el motivo y el JSON original |
 | `GET /health` | `200` si el servicio está arriba |
 

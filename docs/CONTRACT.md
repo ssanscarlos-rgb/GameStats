@@ -1,6 +1,6 @@
 # GameStats — Formato de eventos y contrato entre módulos
 
-**Versión:** 1.0 (versión final; juegos `combat`, `racing` y `chase`, los tres con analizador propio)
+**Versión:** 1.1 (agrega `pipeline.games` en `GET /status` y `GET /results/games`; juegos `combat`, `racing` y `chase`, los tres con analizador propio)
 **Transporte:** HTTP/REST con JSON (UTF-8, `Content-Type: application/json`)
 **Servicio Go (ingestión):** `http://ingest:8080` (variable `PORT`). Lo usan las fuentes de eventos.
 **Servicio Scala (análisis):** `http://analyzer:8081` (variable `PORT`). Lo usa Go para entregar partidas y cualquier consumidor para leer resultados.
@@ -408,7 +408,12 @@ Contadores desde que arrancó el servicio. Ejemplo real tras `simulator -seed 42
   "rejected": 10,
   "pipeline": {
     "received": 492, "duplicates": 3, "late": 1, "gameMismatch": 1,
-    "openMatches": 0, "batchesSent": 14, "batchesFailed": 0, "reopened": 0, "eventsSent": 487
+    "openMatches": 0, "batchesSent": 14, "batchesFailed": 0, "reopened": 0, "eventsSent": 487,
+    "games": {
+      "combat": { "opened": 5, "delivered": 5 },
+      "racing": { "opened": 4, "delivered": 4 },
+      "chase":  { "opened": 5, "delivered": 5 }
+    }
   }
 }
 ```
@@ -418,6 +423,10 @@ Contadores desde que arrancó el servicio. Ejemplo real tras `simulator -seed 42
 - `openMatches`: partidas que siguen esperando eventos.
 - `batchesSent` / `batchesFailed`: partidas entregadas a Scala / que no se pudieron entregar.
 - `eventsSent`: eventos entregados a Scala (`received` menos duplicados, tardíos y de otro juego, cuando no quedan partidas abiertas).
+- `games` (v1.1): instancias por `gameId`, desde que arrancó el servicio. Un juego aparece al llegar su primera partida.
+  - `opened`: partidas abiertas, **incluidas las que siguen en curso**. Sube con el primer evento de la partida (normalmente `MATCH_STARTED`), no al terminar.
+  - `delivered`: partidas ya entregadas a Scala con éxito. `opened - delivered` son las que siguen abiertas o cuyo envío falló.
+  - Una partida cuyo envío falló y se reenvía cuenta una sola vez en `opened`.
 
 ### 6.6 `GET /rejected`
 

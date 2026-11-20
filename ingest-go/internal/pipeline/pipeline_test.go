@@ -250,3 +250,66 @@ func TestSampleFileArrivesAsOneMatch(t *testing.T) {
 		t.Errorf("esperaba %d eventos, llegaron %d", len(evs), len(got))
 	}
 }
+
+// A6: abrir una partida sube "opened" de su juego ANTES de que termine; "delivered"
+// solo sube cuando Scala la recibió.
+func TestGamesCountOpenedBeforeFinish(t *testing.T) {
+	p, _, _ := newTest(Config{IdleTimeout: time.Hour})
+	defer p.Close()
+
+	p.Submit(ev("m1", "1", "MATCH_STARTED")) // juego "combat"
+	eventually(t, func() bool { return p.Stats().Games["combat"].Opened == 1 })
+	if g := p.Stats().Games["combat"]; g.Delivered != 0 {
+		t.Fatalf("una partida en curso no puede estar entregada: %+v", g)
+	}
+
+	p.Submit(ev("m1", "2", "MATCH_FINISHED"))
+	eventually(t, func() bool { return p.Stats().Games["combat"].Delivered == 1 })
+	if g := p.Stats().Games["combat"]; g.Opened != 1 {
+		t.Errorf("opened debe seguir en 1 tras terminar: %+v", g)
+	}
+}
+
+// Cada juego lleva su propia cuenta, sin mezclarse con otros juegos.
+func TestGamesAreCountedSeparately(t *testing.T) {
+	p, _, _ := newTest(Config{})
+	for i, game := range []string{"combat", "combat", "racing", "chase"} {
+		m := fmt.Sprintf("m%d", i)
+		a, b := ev(m, m+"-1", "MATCH_STARTED"), ev(m, m+"-2", "MATCH_FINISHED")
+		a.GameID, b.GameID = game, game
+		p.Submit(a)
+		p.Submit(b)
+	}
+	p.Close()
+
+	want := map[string]GameCount{
+		"combat": {Opened: 2, Delivered: 2},
+		"racing": {Opened: 1, Delivered: 1},
+		"chase":  {Opened: 1, Delivered: 1},
+	}
+	got := p.Stats().Games
+	for id, w := range want {
+		if got[id] != w {
+			t.Errorf("%s: esperaba %+v, hay %+v", id, w, got[id])
+		}
+	}
+}
+
+// Si el envío falla y la partida se reenvía, sigue siendo UNA instancia abierta.
+func TestGamesFailedMatchIsNotCountedTwice(t *testing.T) {
+	p, s, _ := newTest(Config{})
+	s.failNext = 1
+	p.Submit(ev("m1", "1", "MATCH_STARTED"))
+	p.Submit(ev("m1", "2", "MATCH_FINISHED"))
+	eventually(t, func() bool { return p.Stats().Reopened == 1 })
+	if g := p.Stats().Games["combat"]; g.Opened != 0 || g.Delivered != 0 {
+		t.Fatalf("tras el fallo no hay instancia abierta ni entregada: %+v", g)
+	}
+
+	p.Submit(ev("m1", "1", "MATCH_STARTED"))
+	p.Submit(ev("m1", "2", "MATCH_FINISHED"))
+	p.Close()
+	if g := p.Stats().Games["combat"]; g != (GameCount{Opened: 1, Delivered: 1}) {
+		t.Errorf("esperaba 1 abierta y 1 entregada: %+v", g)
+	}
+}

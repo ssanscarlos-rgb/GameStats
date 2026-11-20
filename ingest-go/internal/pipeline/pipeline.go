@@ -60,15 +60,62 @@ type Stats struct {
 	BatchesFailed int64 `json:"batchesFailed"`
 	Reopened      int64 `json:"reopened"`
 	EventsSent    int64 `json:"eventsSent"`
+
+	// Games cuenta las partidas por juego (gameId). Es la parte de GameStats v1.1
+	// que usa el panel de GameConsole para mostrar "instancias por juego".
+	Games map[string]GameCount `json:"games"`
 }
+
+// GameCount son las instancias de un juego desde que arrancó el ingest.
+type GameCount struct {
+	Opened    int64 `json:"opened"`    // partidas abiertas (incluye las que siguen en curso)
+	Delivered int64 `json:"delivered"` // partidas ya entregadas a Scala con éxito
+}
+
+// gameCounters guarda un GameCount por gameId. Lo tocan varios trabajadores y
+// mensajeros a la vez, así que va protegido con un candado.
+type gameCounters struct {
+	mu sync.Mutex
+	m  map[string]*GameCount
+}
+
+func (g *gameCounters) add(gameID string, opened, delivered int64) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.m == nil {
+		g.m = map[string]*GameCount{}
+	}
+	c := g.m[gameID]
+	if c == nil {
+		c = &GameCount{}
+		g.m[gameID] = c
+	}
+	c.Opened += opened
+	c.Delivered += delivered
+}
+
+// snapshot devuelve una copia: quien la lea no compite con quien sigue sumando.
+func (g *gameCounters) snapshot() map[string]GameCount {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	out := make(map[string]GameCount, len(g.m))
+	for id, c := range g.m {
+		out[id] = *c
+	}
+	return out
+}
+
+// forgetMsg avisa a un trabajador que el envío de una partida falló.
+type forgetMsg struct{ matchID, gameID string }
 
 type Pipeline struct {
 	cfg    Config
 	inputs []chan event.Event // un canal por trabajador
-	forget []chan string      // avisos "esta partida falló, vuelve a abrirla", uno por trabajador
+	forget []chan forgetMsg   // avisos "esta partida falló, vuelve a abrirla", uno por trabajador
 	ready  chan Batch         // partidas listas → mensajeros
 	sender Sender
 	reject RejectFunc
+	games  gameCounters // instancias por juego (A6)
 
 	workersWG sync.WaitGroup
 	sendersWG sync.WaitGroup
@@ -101,7 +148,7 @@ func New(cfg Config, sender Sender, reject RejectFunc) *Pipeline {
 	p := &Pipeline{
 		cfg:    cfg,
 		inputs: make([]chan event.Event, cfg.Workers),
-		forget: make([]chan string, cfg.Workers),
+		forget: make([]chan forgetMsg, cfg.Workers),
 		ready:  make(chan Batch, cfg.QueueSize),
 		sender: sender,
 		reject: reject,
@@ -109,7 +156,7 @@ func New(cfg Config, sender Sender, reject RejectFunc) *Pipeline {
 
 	for i := range p.inputs {
 		p.inputs[i] = make(chan event.Event, cfg.QueueSize)
-		p.forget[i] = make(chan string, cfg.QueueSize)
+		p.forget[i] = make(chan forgetMsg, cfg.QueueSize)
 		p.workersWG.Add(1)
 		go p.runWorker(p.inputs[i], p.forget[i]) // "go" = arranca esta función en una goroutine nueva
 	}
@@ -152,6 +199,7 @@ func (p *Pipeline) Stats() Stats {
 		Received: p.received.Load(), Duplicates: p.duplicates.Load(), Late: p.late.Load(),
 		GameMismatch: p.mismatch.Load(), OpenMatches: p.open.Load(),
 		BatchesSent: p.sent.Load(), BatchesFailed: p.failed.Load(), Reopened: p.reopened.Load(), EventsSent: p.eventsSent.Load(),
+		Games: p.games.snapshot(),
 	}
 }
 
@@ -166,12 +214,13 @@ func (p *Pipeline) runSender() {
 		if err != nil {
 			// La partida no llegó a Scala: se le avisa a su trabajador para que
 			// la olvide como "cerrada" y un reenvío de sus eventos se acepte.
-			p.reopen(b.MatchID)
+			p.reopen(b.MatchID, b.GameID)
 			p.failed.Add(1)
 			log.Printf("ERROR enviando partida %s (%d eventos): %v", b.MatchID, len(b.Events), err)
 			continue
 		}
 		p.sent.Add(1)
+		p.games.add(b.GameID, 0, 1)
 		p.eventsSent.Add(int64(len(b.Events)))
 		log.Printf("partida %s (%s) enviada a análisis: %d eventos, %d jugadores [%s]", b.MatchID, b.GameID, len(b.Events), b.Players, b.Reason)
 	}
@@ -180,9 +229,9 @@ func (p *Pipeline) runSender() {
 // reopen avisa al trabajador dueño de la partida que el envío falló.
 // El select con default nunca bloquea: si la cola de avisos está llena o el
 // trabajador ya terminó (apagado), el aviso se descarta en vez de trabar al mensajero.
-func (p *Pipeline) reopen(matchID string) {
+func (p *Pipeline) reopen(matchID, gameID string) {
 	select {
-	case p.forget[p.shard(matchID)] <- matchID:
+	case p.forget[p.shard(matchID)] <- forgetMsg{matchID: matchID, gameID: gameID}:
 	default:
 	}
 }
