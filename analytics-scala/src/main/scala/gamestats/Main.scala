@@ -40,4 +40,8 @@ object Main extends cask.MainRoutes:
   @cask.get("/results/players")
   def players() = json(store.playerSummaries)
 
+  /** Resumen por juego y general (lo consume el panel de GameConsole; no se recalcula allá). */
+  @cask.get("/results/games")
+  def games() = json(store.overview)
+
   initialize()

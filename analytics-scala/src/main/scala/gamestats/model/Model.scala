@@ -54,3 +54,32 @@ case class PlayerSummary(
     derived: Map[String, Double],
     patternCounts: Map[String, Int]
 ) derives Codec.AsObject
+
+/** Resumen de todas las partidas analizadas de un juego (GET /results/games). */
+case class GameSummary(
+    gameId: String,
+    matchesAnalyzed: Int,
+    matchesWithWinner: Int,
+    playersCount: Int,
+    totalDurationSeconds: Long,
+    avgDurationSeconds: Double,
+    eventCounts: Map[String, Int],
+    patternCounts: Map[String, Int],
+    counters: Map[String, Double],
+    derived: Map[String, Double]
+) derives Codec.AsObject
+
+/** Totales sobre todos los juegos. `playersCount` cuenta cada playerId una sola vez. */
+case class OverallSummary(
+    gamesCount: Int,
+    matchesAnalyzed: Int,
+    matchesWithWinner: Int,
+    playersCount: Int,
+    totalDurationSeconds: Long,
+    avgDurationSeconds: Double,
+    eventCounts: Map[String, Int],
+    patternCounts: Map[String, Int]
+) derives Codec.AsObject
+
+/** Respuesta de GET /results/games: un resumen por juego y los totales generales. */
+case class ResultsOverview(games: List[GameSummary], total: OverallSummary) derives Codec.AsObject

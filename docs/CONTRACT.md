@@ -99,19 +99,19 @@ Ejemplo: `samples/racing_match.json` (vale choca en la vuelta 1, queda última y
 
 Estadísticas y reglas: ver sección 5.2.
 
-### 2.4 Juego `chase` — La Buena vs La Mala, implementado en Scala
+### 2.4 Juego `chase` — carrera hacia una salida, implementado en Scala
 
-Basado en el proyecto Java + Prolog de Jean. Tablero de `rows` × `cols` con obstáculos; La Buena (el jugador) debe alcanzar a La Mala moviéndose arriba, abajo, izquierda o derecha. El juego calcula la ruta más corta (A\*) y el jugador la recorre; si choca con un obstáculo pierde una vida (3 en total). Coordenadas `(row, col)` desde 0. Un solo jugador por partida.
+Basado en el proyecto Java + Prolog de Jean. Carrera en tiempo real por un mapa de `rows` × `cols` con obstáculos hacia una **salida** ubicada en un borde; todos los jugadores empiezan en la misma celda. Pueden participar una persona y una IA, o dos personas. El juego calcula la ruta más corta (A\*) y cada jugador la recorre por su cuenta; si choca con un obstáculo pierde una vida (3 en total). Coordenadas `(row, col)` desde 0. **Uno o dos jugadores por partida**; cada uno emite sus propios `ROUTE_COMPUTED`, `PLAYER_MOVED` y `TARGET_REACHED`.
 
 | `type` | `playerId` | `data` |
 |---|---|---|
-| `MATCH_STARTED` | – | `rows`, `cols`, `obstaclePct`, `lives` (int) |
+| `MATCH_STARTED` | – | `rows`, `cols`, `obstaclePct`, `lives` (int); el juego puede agregar `mode`, `exit`, `difficulty`, etc. (el analizador los ignora) |
 | `PLAYER_JOINED` | jugador | – |
-| `ROUTE_COMPUTED` | jugador | `found` (bool), `start` y `goal` (`{row, col}`), `optimalSteps` y `routeTurns` (int, solo si `found`) |
+| `ROUTE_COMPUTED` | jugador | `found` (bool), `start` y `goal` (`{row, col}`, la salida), `optimalSteps` y `routeTurns` (int, solo si `found`) |
 | `PLAYER_MOVED` | jugador | `row`, `col` (int, celda de llegada), `direction` (`arriba`/`abajo`/`izquierda`/`derecha`), `turn` (bool, cambió de dirección) |
 | `OBSTACLE_HIT` | jugador | `row`, `col` (celda del obstáculo), `livesLeft` (int) |
 | `TARGET_REACHED` | jugador | `steps`, `turns` (int) |
-| `MATCH_FINISHED` | – | `winnerId` solo si alcanzó a La Mala |
+| `MATCH_FINISHED` | – | `winnerId` solo si alguien llegó a la salida |
 
 Ejemplo: `samples/chase_match.json`.
 
@@ -158,7 +158,10 @@ Un análisis de partida. `404` con `{"error":"match not found"}` si no existe.
 ### 3.4 `GET /results/players`
 Agregado por jugador y juego, sumando todas las partidas (esquema en 4.2).
 
-### 3.5 `GET /health`
+### 3.5 `GET /results/games`
+Resumen por juego y general (esquema en 4.3). Solo cuenta partidas ya analizadas (las que Go entregó); las partidas aún abiertas se ven en el `/status` de Go.
+
+### 3.6 `GET /health`
 `200 {"status":"ok"}`. Para healthchecks de Docker/Compose y para que Go espere a Scala antes de enviar.
 
 ---
@@ -217,6 +220,33 @@ Resultado real esperado para `samples/combat_match.json`:
   "patternCounts": { "COMEBACK": 1 }
 }
 ```
+
+### 4.3 Resumen por juego y general (`ResultsOverview`)
+
+```json
+{
+  "games": [
+    {
+      "gameId": "chase",
+      "matchesAnalyzed": 2, "matchesWithWinner": 2, "playersCount": 2,
+      "totalDurationSeconds": 60, "avgDurationSeconds": 30.0,
+      "eventCounts": { "MATCH_STARTED": 2, "PLAYER_MOVED": 32, "MATCH_FINISHED": 2 },
+      "patternCounts": { "PERFECT_RUN": 2 },
+      "counters": { "routeFound": 4, "reached": 2 },
+      "derived":  { "successRate": 0.5, "efficiency": 1.0 }
+    }
+  ],
+  "total": {
+    "gamesCount": 2, "matchesAnalyzed": 3, "matchesWithWinner": 3, "playersCount": 3,
+    "totalDurationSeconds": 120, "avgDurationSeconds": 40.0,
+    "eventCounts": { "MATCH_STARTED": 3 }, "patternCounts": { "PERFECT_RUN": 2 }
+  }
+}
+```
+
+- `games` va ordenado por `gameId`; `[]` si todavía no hay partidas.
+- `counters` de un juego suma los de todos sus jugadores; `derived` se recalcula con el analizador del juego (igual que en 4.2).
+- `playersCount` cuenta cada `playerId` una sola vez (los bots y la CPU también cuentan).
 
 ---
 
